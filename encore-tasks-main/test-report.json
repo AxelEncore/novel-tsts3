@@ -1,0 +1,16 @@
+{
+  "summary": {
+    "total": 14,
+    "passed": 13,
+    "failed": 1,
+    "successRate": "92.86"
+  },
+  "errors": [
+    "❌ Не удалось создать колонку для задач",
+    "Ошибка: Request failed with status code 500"
+  ],
+  "warnings": [],
+  "recommendations": [
+    "Исправить найденные ошибки API"
+  ]
+}

@@ -1,0 +1,793 @@
+// =====================================================
+// POSTGRESQL ADAPTER FOR ENCORE TASKS
+// =====================================================
+
+import { Pool, PoolClient } from 'pg';
+import bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
+
+export class PostgreSQLAdapter {
+  private pool: Pool;
+  private isInitialized = false;
+
+  constructor() {
+    this.pool = new Pool({
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      database: process.env.DB_NAME || 'encore_tasks',
+      user: process.env.DB_USER || 'encore_user',
+      password: process.env.DB_PASSWORD || 'encore_password',
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      max: parseInt(process.env.DB_POOL_MAX || '20'),
+      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000'),
+      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '2000'),
+    });
+  }
+
+  async initialize(): Promise<void> {
+    try {
+      // Test connection
+      const client = await this.pool.connect();
+      await client.query('SELECT NOW()');
+      client.release();
+      this.isInitialized = true;
+      console.log('✅ PostgreSQL adapter initialized successfully');
+    } catch (error) {
+      console.error('❌ PostgreSQL adapter initialization failed:', error);
+      throw error;
+    }
+  }
+
+  isConnected(): boolean {
+    return this.isInitialized;
+  }
+
+  async executeRawQuery(query: string, params: any[] = []): Promise<any> {
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(query, params);
+      return result;
+    } finally {
+      client.release();
+    }
+  }
+
+  async query(sql: string, params: unknown[]): Promise<any> {
+    return this.executeRawQuery(sql, params as any[]);
+  }
+
+  // =====================================================
+  // USER OPERATIONS
+  // =====================================================
+
+  async createUser(userData: {
+    email: string;
+    password: string;
+    name: string;
+    role?: string;
+  }): Promise<any> {
+    const { email, password, name, role = 'user' } = userData;
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const id = uuidv4();
+
+    const query = `
+      INSERT INTO users (id, email, password_hash, name, role, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+      RETURNING id, email, name, role, created_at, updated_at
+    `;
+
+    const result = await this.executeRawQuery(query, [id, email, hashedPassword, name, role]);
+    return result.rows[0];
+  }
+
+  async getUserById(id: string): Promise<any> {
+    const query = 'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = $1';
+    const result = await this.executeRawQuery(query, [id]);
+    return result.rows[0] || null;
+  }
+
+  async getUserByEmail(email: string): Promise<any> {
+    const query = 'SELECT * FROM users WHERE email = $1';
+    const result = await this.executeRawQuery(query, [email]);
+    return result.rows[0] || null;
+  }
+
+  async updateUser(id: string, userData: Partial<any>): Promise<any> {
+    const fields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    for (const [key, value] of Object.entries(userData)) {
+      if (key === 'password') {
+        fields.push(`password_hash = $${paramIndex}`);
+        values.push(await bcrypt.hash(value as string, 12));
+      } else if (key !== 'id') {
+        fields.push(`${key} = $${paramIndex}`);
+        values.push(value);
+      }
+      paramIndex++;
+    }
+
+    if (fields.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    fields.push(`updated_at = NOW()`);
+    values.push(id);
+
+    const query = `
+      UPDATE users 
+      SET ${fields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING id, email, name, role, created_at, updated_at
+    `;
+
+    const result = await this.executeRawQuery(query, values);
+    return result.rows[0];
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const query = 'DELETE FROM users WHERE id = $1';
+    const result = await this.executeRawQuery(query, [id]);
+    return result.rowCount > 0;
+  }
+
+  async getAllUsers(): Promise<any[]> {
+    const query = 'SELECT id, email, name, role, created_at, updated_at FROM users ORDER BY created_at DESC';
+    const result = await this.executeRawQuery(query);
+    return result.rows;
+  }
+
+  // =====================================================
+  // SESSION OPERATIONS
+  // =====================================================
+
+  async createSession(sessionData: any): Promise<any> {
+    const { userId, user_id, token, expiresAt, expires_at } = sessionData;
+    const id = uuidv4();
+    
+    // Поддерживаем оба формата названий полей
+    const userIdValue = userId || user_id;
+    const expiresAtValue = expiresAt || expires_at;
+
+    const query = `
+      INSERT INTO sessions (id, user_id, token, expires_at, created_at)
+      VALUES ($1, $2, $3, $4, NOW())
+      RETURNING *
+    `;
+
+    const result = await this.executeRawQuery(query, [id, userIdValue, token, expiresAtValue]);
+    return result.rows[0];
+  }
+
+  async getSessionByToken(token: string): Promise<any> {
+    const query = `
+      SELECT s.*, u.id as user_id, u.email, u.name, u.role
+      FROM sessions s
+      JOIN users u ON s.user_id = u.id
+      WHERE s.token = $1 AND s.expires_at > NOW()
+    `;
+    const result = await this.executeRawQuery(query, [token]);
+    return result.rows[0] || null;
+  }
+
+  async deleteSession(token: string): Promise<boolean> {
+    const query = 'DELETE FROM sessions WHERE token = $1';
+    const result = await this.executeRawQuery(query, [token]);
+    return result.rowCount > 0;
+  }
+
+  async deleteUserSessions(userId: string): Promise<boolean> {
+    const query = 'DELETE FROM sessions WHERE user_id = $1';
+    const result = await this.executeRawQuery(query, [userId]);
+    return result.rowCount > 0;
+  }
+
+  // =====================================================
+  // PROJECT OPERATIONS
+  // =====================================================
+
+  async createProject(projectData: any): Promise<any> {
+    const { name, description, created_by, color, icon_url } = projectData;
+    const id = uuidv4();
+
+    // Создаем проект
+    const projectQuery = `
+      INSERT INTO projects (id, name, description, creator_id, color, icon, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+      RETURNING *
+    `;
+
+    const projectResult = await this.executeRawQuery(projectQuery, [id, name, description, created_by, color, icon_url]);
+    const project = projectResult.rows[0];
+
+    // Добавляем создателя как владельца в project_members
+    const memberQuery = `
+      INSERT INTO project_members (id, project_id, user_id, role, joined_at)
+      VALUES ($1, $2, $3, $4, NOW())
+    `;
+
+    const memberId = uuidv4();
+    await this.executeRawQuery(memberQuery, [memberId, id, created_by, 'owner']);
+
+    return project;
+  }
+
+  async getProjectById(id: string): Promise<any> {
+    const query = `
+      SELECT p.*, u.name as owner_name
+      FROM projects p
+      JOIN users u ON p.creator_id = u.id
+      WHERE p.id = $1
+    `;
+    const result = await this.executeRawQuery(query, [id]);
+    return result.rows[0] || null;
+  }
+
+  async getUserProjects(userId: string): Promise<any[]> {
+    const query = `
+      SELECT p.*, u.name as owner_name
+      FROM projects p
+      JOIN users u ON p.creator_id = u.id
+      WHERE p.creator_id = $1
+      ORDER BY p.created_at DESC
+    `;
+    const result = await this.executeRawQuery(query, [userId]);
+    return result.rows;
+  }
+
+  async updateProject(id: string, projectData: Partial<any>): Promise<any> {
+    const fields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    for (const [key, value] of Object.entries(projectData)) {
+      if (key !== 'id') {
+        fields.push(`${key} = $${paramIndex}`);
+        values.push(value);
+        paramIndex++;
+      }
+    }
+
+    if (fields.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    fields.push(`updated_at = NOW()`);
+    values.push(id);
+
+    const query = `
+      UPDATE projects 
+      SET ${fields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    const result = await this.executeRawQuery(query, values);
+    return result.rows[0];
+  }
+
+  async deleteProject(id: string): Promise<boolean> {
+    const query = 'DELETE FROM projects WHERE id = $1';
+    const result = await this.executeRawQuery(query, [id]);
+    return result.rowCount > 0;
+  }
+
+  // =====================================================
+  // BOARD OPERATIONS
+  // =====================================================
+
+  async createBoard(boardData: any): Promise<any> {
+    console.log('🔧 PostgreSQL createBoard received:', boardData);
+    const { name, description, project_id, projectId, createdBy, created_by, color, icon } = boardData;
+    const finalProjectId = project_id || projectId;
+    const finalCreatedBy = createdBy || created_by;
+    const id = uuidv4();
+
+    console.log('🔧 Extracted values:', { finalProjectId, finalCreatedBy, name, description, color, icon });
+
+    const query = `
+      INSERT INTO boards (id, name, description, project_id, icon, color, created_by, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+      RETURNING *
+    `;
+
+    const result = await this.executeRawQuery(query, [
+      id, name, description, finalProjectId, icon || 'kanban', color || '#3B82F6', finalCreatedBy
+    ]);
+    console.log('✅ PostgreSQL board created:', result.rows[0]);
+    return result.rows[0];
+  }
+
+  async getBoardById(id: string): Promise<any> {
+    const query = 'SELECT * FROM boards WHERE id = $1';
+    const result = await this.executeRawQuery(query, [id]);
+    return result.rows[0] || null;
+  }
+
+  async getProjectBoards(projectId: string): Promise<any[]> {
+    const query = 'SELECT * FROM boards WHERE project_id = $1 ORDER BY created_at ASC';
+    const result = await this.executeRawQuery(query, [projectId]);
+    return result.rows;
+  }
+
+  async updateBoard(id: string, updates: Partial<any>): Promise<any> {
+    const fields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (key !== 'id') {
+        fields.push(`${key} = $${paramIndex}`);
+        values.push(value);
+        paramIndex++;
+      }
+    }
+
+    if (fields.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    fields.push(`updated_at = NOW()`);
+    values.push(id);
+
+    const query = `
+      UPDATE boards 
+      SET ${fields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    const result = await this.executeRawQuery(query, values);
+    return result.rows[0];
+  }
+
+  async deleteBoard(id: string): Promise<boolean> {
+    const query = 'DELETE FROM boards WHERE id = $1';
+    const result = await this.executeRawQuery(query, [id]);
+    return result.rowCount > 0;
+  }
+
+  // =====================================================
+  // COLUMN OPERATIONS
+  // =====================================================
+
+  async createColumn(columnData: any): Promise<any> {
+    const { name, boardId, position } = columnData;
+    const id = uuidv4();
+
+    const query = `
+      INSERT INTO columns (id, name, board_id, position, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      RETURNING *
+    `;
+
+    const result = await this.executeRawQuery(query, [id, name, boardId, position || 0]);
+    return result.rows[0];
+  }
+
+  async getColumnById(id: string): Promise<any> {
+    const query = 'SELECT * FROM columns WHERE id = $1';
+    const result = await this.executeRawQuery(query, [id]);
+    return result.rows[0] || null;
+  }
+
+  async getBoardColumns(boardId: string): Promise<any[]> {
+    const query = 'SELECT * FROM columns WHERE board_id = $1 ORDER BY position ASC, created_at ASC';
+    const result = await this.executeRawQuery(query, [boardId]);
+    return result.rows;
+  }
+
+  async updateColumn(id: string, updates: Partial<any>): Promise<any> {
+    const fields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (key !== 'id') {
+        fields.push(`${key} = $${paramIndex}`);
+        values.push(value);
+        paramIndex++;
+      }
+    }
+
+    if (fields.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    fields.push(`updated_at = NOW()`);
+    values.push(id);
+
+    const query = `
+      UPDATE columns 
+      SET ${fields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    const result = await this.executeRawQuery(query, values);
+    return result.rows[0];
+  }
+
+  async deleteColumn(id: string): Promise<boolean> {
+    const query = 'DELETE FROM columns WHERE id = $1';
+    const result = await this.executeRawQuery(query, [id]);
+    return result.rowCount > 0;
+  }
+
+  // =====================================================
+  // TASK OPERATIONS
+  // =====================================================
+
+  async createTask(taskData: any): Promise<any> {
+    const { title, description, columnId, projectId, boardId, assigneeId, priority, deadline, position, reporterId } = taskData;
+    const id = uuidv4();
+
+    const query = `
+      INSERT INTO tasks (id, title, description, column_id, project_id, board_id, assignee_id, priority, deadline, position, status, reporter_id, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'todo', $11, NOW(), NOW())
+      RETURNING *
+    `;
+
+    const result = await this.executeRawQuery(query, [
+      id, title, description, columnId, projectId, boardId, assigneeId, priority || 'medium', deadline, position || 0, reporterId
+    ]);
+    return result.rows[0];
+  }
+
+  async getTaskById(id: string): Promise<any> {
+    const query = `
+      SELECT t.*, u.name as assignee_name, c.name as column_name
+      FROM tasks t
+      LEFT JOIN users u ON t.assignee_id = u.id
+      LEFT JOIN columns c ON t.column_id = c.id
+      WHERE t.id = $1
+    `;
+    const result = await this.executeRawQuery(query, [id]);
+    return result.rows[0] || null;
+  }
+
+  async getProjectTasks(projectId: string): Promise<any[]> {
+    const query = `
+      SELECT t.*, u.name as assignee_name, c.name as column_name
+      FROM tasks t
+      LEFT JOIN users u ON t.assignee_id = u.id
+      LEFT JOIN columns c ON t.column_id = c.id
+      WHERE t.project_id = $1
+      ORDER BY t.position ASC, t.created_at ASC
+    `;
+    const result = await this.executeRawQuery(query, [projectId]);
+    return result.rows;
+  }
+
+  async getColumnTasks(columnId: string): Promise<any[]> {
+    const query = `
+      SELECT 
+        t.id,
+        t.title,
+        t.description,
+        t.priority,
+        t.status,
+        t.position,
+        t.due_date,
+        t.created_at,
+        t.updated_at,
+        t.column_id,
+        t.created_by,
+        t.assignee_id,
+        u1.name as creator_name,
+        u1.email as creator_email,
+        u2.name as assignee_name,
+        u2.email as assignee_email
+      FROM tasks t
+      LEFT JOIN users u1 ON t.created_by = u1.id
+      LEFT JOIN users u2 ON t.assignee_id = u2.id
+      WHERE t.column_id = $1
+      ORDER BY t.position ASC
+    `;
+    
+    const result = await this.executeRawQuery(query, [columnId]);
+    return result.rows;
+  }
+
+  async getBoardTasks(boardId: string): Promise<any[]> {
+    const query = `
+      SELECT t.*, u.name as assignee_name, c.name as column_name
+      FROM tasks t
+      LEFT JOIN users u ON t.assignee_id = u.id
+      LEFT JOIN columns c ON t.column_id = c.id
+      WHERE c.board_id = $1
+      ORDER BY t.position ASC, t.created_at ASC
+    `;
+    const result = await this.executeRawQuery(query, [boardId]);
+    return result.rows;
+  }
+
+
+
+  async updateTask(id: string, updates: Partial<any>): Promise<any> {
+    const fields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (key !== 'id') {
+        fields.push(`${key} = $${paramIndex}`);
+        values.push(value);
+        paramIndex++;
+      }
+    }
+
+    if (fields.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    fields.push(`updated_at = NOW()`);
+    values.push(id);
+
+    const query = `
+      UPDATE tasks 
+      SET ${fields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    const result = await this.executeRawQuery(query, values);
+    return result.rows[0];
+  }
+
+  async deleteTask(id: string): Promise<boolean> {
+    const query = 'DELETE FROM tasks WHERE id = $1';
+    const result = await this.executeRawQuery(query, [id]);
+    return result.rowCount > 0;
+  }
+
+  // =====================================================
+  // COMMENT OPERATIONS
+  // =====================================================
+
+  async getTaskComments(taskId: string): Promise<any[]> {
+    const query = `
+      SELECT 
+        c.id,
+        c.content,
+        c.parent_id,
+        c.created_at,
+        c.updated_at,
+        u.id as author_id,
+        u.name as author_name,
+        u.email as author_email
+      FROM task_comments c
+      JOIN users u ON c.author_id = u.id
+      WHERE c.task_id = $1 AND c.parent_id IS NULL
+      ORDER BY c.created_at DESC
+    `;
+    const result = await this.executeRawQuery(query, [taskId]);
+    
+    // Получаем ответы для каждого комментария
+    for (const comment of result.rows) {
+      const repliesQuery = `
+        SELECT 
+          c.id,
+          c.content,
+          c.parent_id,
+          c.created_at,
+          c.updated_at,
+          u.id as author_id,
+          u.name as author_name,
+          u.email as author_email
+        FROM task_comments c
+        JOIN users u ON c.author_id = u.id
+        WHERE c.parent_id = $1
+        ORDER BY c.created_at ASC
+      `;
+      const repliesResult = await this.executeRawQuery(repliesQuery, [comment.id]);
+      comment.replies = repliesResult.rows;
+    }
+    
+    return result.rows;
+  }
+
+  async createTaskComment(commentData: any): Promise<any> {
+    const { content, taskId, authorId, parentId } = commentData;
+    const id = uuidv4();
+
+    const query = `
+      INSERT INTO task_comments (id, content, task_id, author_id, parent_id, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+      RETURNING *
+    `;
+
+    const result = await this.executeRawQuery(query, [
+      id, content, taskId, authorId, parentId || null
+    ]);
+    
+    // Получаем полную информацию о комментарии с автором
+    const fullCommentQuery = `
+      SELECT 
+        c.id,
+        c.content,
+        c.parent_id,
+        c.created_at,
+        c.updated_at,
+        u.id as author_id,
+        u.name as author_name,
+        u.email as author_email
+      FROM task_comments c
+      JOIN users u ON c.author_id = u.id
+      WHERE c.id = $1
+    `;
+    const fullResult = await this.executeRawQuery(fullCommentQuery, [id]);
+    const comment = fullResult.rows[0];
+    
+    // Если это не ответ, получаем пустой массив ответов
+    if (!parentId) {
+      comment.replies = [];
+    }
+    
+    return comment;
+  }
+
+  async getCommentById(id: string): Promise<any> {
+    const query = `
+      SELECT 
+        c.id,
+        c.content,
+        c.task_id,
+        c.parent_id,
+        c.created_at,
+        c.updated_at,
+        u.id as author_id,
+        u.name as author_name,
+        u.email as author_email
+      FROM task_comments c
+      JOIN users u ON c.author_id = u.id
+      WHERE c.id = $1
+    `;
+    const result = await this.executeRawQuery(query, [id]);
+    return result.rows[0] || null;
+  }
+
+  // =====================================================
+  // PROJECT MEMBER OPERATIONS
+  // =====================================================
+
+  async addProjectMember(projectId: string, userId: string, role: string = 'MEMBER'): Promise<any> {
+    const id = uuidv4();
+    const query = `
+      INSERT INTO project_members (id, project_id, user_id, role, joined_at)
+      VALUES ($1, $2, $3, $4, NOW())
+      RETURNING *
+    `;
+    const result = await this.executeRawQuery(query, [id, projectId, userId, role]);
+    return result.rows[0];
+  }
+
+  async getProjectMembers(projectId: string): Promise<any[]> {
+    const query = `
+      SELECT pm.*, u.name, u.email
+      FROM project_members pm
+      JOIN users u ON pm.user_id = u.id
+      WHERE pm.project_id = $1
+      ORDER BY pm.joined_at ASC
+    `;
+    const result = await this.executeRawQuery(query, [projectId]);
+    return result.rows;
+  }
+
+  async getUsersByEmails(emails: string[]): Promise<any[]> {
+    if (emails.length === 0) return [];
+    
+    const placeholders = emails.map((_, index) => `$${index + 1}`).join(', ');
+    const query = `SELECT * FROM users WHERE email IN (${placeholders})`;
+    const result = await this.executeRawQuery(query, emails);
+    return result.rows;
+  }
+
+  async createBoardWithColumns(boardData: any, columnsData: any[] = []): Promise<any> {
+    const { name, description, color, projectId } = boardData;
+    const boardId = uuidv4();
+
+    // Создаем доску
+    const boardQuery = `
+      INSERT INTO boards (id, name, description, color, project_id, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+      RETURNING *
+    `;
+    
+    const boardResult = await this.executeRawQuery(boardQuery, [
+      boardId, name, description || '', color || '#10B981', projectId
+    ]);
+    const board = boardResult.rows[0];
+
+    // Создаем колонки
+    const createdColumns = [];
+    if (columnsData.length > 0) {
+      for (let i = 0; i < columnsData.length; i++) {
+        const columnData = columnsData[i];
+        const columnId = uuidv4();
+        
+        const columnQuery = `
+          INSERT INTO columns (id, title, board_id, position, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, NOW(), NOW())
+          RETURNING *
+        `;
+        
+        const columnResult = await this.executeRawQuery(columnQuery, [
+          columnId, columnData.name, boardId, columnData.order || i
+        ]);
+        
+        createdColumns.push({
+          ...columnResult.rows[0],
+          name: columnResult.rows[0].title,
+          status: columnData.status,
+          order: columnResult.rows[0].position
+        });
+      }
+    }
+
+    return {
+      ...board,
+      columns: createdColumns
+    };
+  }
+
+  // =====================================================
+  // ACCESS CONTROL OPERATIONS
+  // =====================================================
+
+  async hasProjectAccess(userId: string, projectId: string): Promise<boolean> {
+    // Check if user is the creator of the project or a member
+    const query = `
+      SELECT 1 FROM projects p
+      LEFT JOIN project_members pm ON p.id = pm.project_id
+      WHERE p.id = $1 AND (p.creator_id = $2 OR pm.user_id = $2)
+    `;
+    const result = await this.executeRawQuery(query, [projectId, userId]);
+    return result.rows.length > 0;
+  }
+
+  async checkBoardAccess(userId: string, boardId: string): Promise<{ hasAccess: boolean, role$1: string }> {
+    const query = `
+      SELECT pm.role
+      FROM boards b
+      JOIN projects p ON b.project_id = p.id
+      LEFT JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = $1
+      WHERE b.id = $2 AND (p.creator_id = $1 OR pm.user_id = $1)
+    `;
+    const result = await this.executeRawQuery(query, [userId, boardId]);
+    
+    if (result.rows.length === 0) {
+      return { hasAccess: false };
+    }
+    
+    return { hasAccess: true, role: result.rows[0].role || 'owner' };
+  }
+
+  async checkColumnAccess(userId: string, columnId: string): Promise<{ hasAccess: boolean, role$1: string, projectId$2: string }> {
+    const query = `
+      SELECT pm.role, p.id as project_id
+      FROM columns c
+      JOIN boards b ON c.board_id = b.id
+      JOIN projects p ON b.project_id = p.id
+      LEFT JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = $1
+      WHERE c.id = $2 AND (p.creator_id = $1 OR pm.user_id = $1)
+    `;
+    const result = await this.executeRawQuery(query, [userId, columnId]);
+    
+    if (result.rows.length === 0) {
+      return { hasAccess: false };
+    }
+    
+    return { 
+      hasAccess: true, 
+      role: result.rows[0].role || 'owner',
+      projectId: result.rows[0].project_id
+    };
+  }
+
+  async close(): Promise<void> {
+    await this.pool.end();
+    this.isInitialized = false;
+  }
+}
