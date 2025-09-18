@@ -17,7 +17,8 @@ export class PostgreSQLAdapter {
       database: process.env.DB_NAME || 'encore_tasks',
       user: process.env.DB_USER || 'encore_user',
       password: process.env.DB_PASSWORD || 'encore_password',
-      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      ssl: (process.env.DB_SSL === 'true' || process.env.POSTGRES_SSL === 'require' || process.env.DATABASE_URL?.includes('sslmode=require')) 
+        ? { rejectUnauthorized: false } : false,
       max: parseInt(process.env.DB_POOL_MAX || '20'),
       idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000'),
       connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '2000'),
