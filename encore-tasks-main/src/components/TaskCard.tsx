@@ -22,13 +22,13 @@ import { Task } from '@/types';
 
 interface TaskCardProps {
   task: Task;
-  onTaskUpdated$1: (task: Task) => void;
-  onTaskDeleted$2: (taskId: string) => void;
-  viewMode$3: 'grid' | 'list';
-  currentUserId$1: string;
-  canEdit$2: boolean;
-  canDelete$3: boolean;
-  isDragOverlay$4: boolean;
+  onTaskUpdated?: (task: Task) => void;
+  onTaskDeleted?: (taskId: string) => void;
+  viewMode?: 'grid' | 'list';
+  currentUserId?: string;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  isDragOverlay?: boolean;
 }
 
 export function TaskCard({ 
@@ -45,7 +45,7 @@ export function TaskCard({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
-    if (!onTaskDeleted || !confirm('Вы уверены, что хотите удалить эту задачу$1')) {
+    if (!onTaskDeleted || !confirm('Вы уверены, что хотите удалить эту задачу?')) {
       return;
     }
 
@@ -157,7 +157,7 @@ export function TaskCard({
 
   // Check permissions
   const isCreator = currentUserId === task.creator_id;
-  const isAssignee = task.assignees$1.some(assignee => assignee.id === currentUserId) || false;
+  const isAssignee = task.assignees && task.assignees.some(assignee => assignee.id === currentUserId) || false;
   const canEditTask = canEdit && (isCreator || isAssignee);
   const canDeleteTask = canDelete && isCreator;
 
@@ -165,8 +165,8 @@ export function TaskCard({
     return (
       <>
         <Card className={`hover:shadow-md transition-shadow ${
-          isOverdue $1 'border-red-300 bg-red-50' : 
-          isDueSoon $1 'border-yellow-300 bg-yellow-50' : ''
+          isOverdue ? 'border-red-300 bg-red-50' : 
+          isDueSoon ? 'border-yellow-300 bg-yellow-50' : ''
         }`}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -183,7 +183,7 @@ export function TaskCard({
                   title="Изменить статус"
                 >
                   <StatusIcon className={`h-5 w-5 ${
-                    task.status === 'done' $1 'text-green-600' : 'text-gray-400'
+                    task.status === 'done' ? 'text-green-600' : 'text-gray-400'
                   }`} />
                 </button>
 
@@ -210,8 +210,8 @@ export function TaskCard({
                     <span>Создал: {task.creator_username}</span>
                     {task.due_date && (
                       <span className={`flex items-center space-x-1 ${
-                        isOverdue $1 'text-red-600 font-medium' :
-                        isDueSoon $2 'text-yellow-600 font-medium' : ''
+                        isOverdue ? 'text-red-600 font-medium' :
+                        isDueSoon ? 'text-yellow-600 font-medium' : ''
                       }`}>
                         <Calendar className="h-3 w-3" />
                         <span>{new Date(task.due_date).toLocaleDateString('ru-RU')}</span>
@@ -285,7 +285,7 @@ export function TaskCard({
                         className="text-red-600"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
-                        {isDeleting $1 'Удаление...' : 'Удалить'}
+                        {isDeleting ? 'Удаление...' : 'Удалить'}
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
@@ -299,7 +299,7 @@ export function TaskCard({
           <EditTaskModal
             isOpen={isEditModalOpen}
             onClose={() => setIsEditModalOpen(false)}
-            onTaskUpdated={onTaskUpdated}
+            onTaskUpdated={onTaskUpdated || (() => {})}
             task={task}
           />
         )}
@@ -311,8 +311,8 @@ export function TaskCard({
   return (
     <>
       <Card className={`hover:shadow-lg transition-all duration-200 cursor-pointer ${
-        isOverdue $1 'border-red-300 bg-red-50' : 
-        isDueSoon $2 'border-yellow-300 bg-yellow-50' : ''
+        isOverdue ? 'border-red-300 bg-red-50' : 
+        isDueSoon ? 'border-yellow-300 bg-yellow-50' : ''
       }`}>
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between">
@@ -328,7 +328,7 @@ export function TaskCard({
                 title="Изменить статус"
               >
                 <StatusIcon className={`h-5 w-5 ${
-                  task.status === 'done' $1 'text-green-600' : 'text-gray-400'
+                  task.status === 'done' ? 'text-green-600' : 'text-gray-400'
                 }`} />
               </button>
               <h3 className="font-semibold text-gray-900 line-clamp-2">{task.title}</h3>
@@ -355,7 +355,7 @@ export function TaskCard({
                       className="text-red-600"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      {isDeleting $1 'Удаление...' : 'Удалить'}
+                      {isDeleting ? 'Удаление...' : 'Удалить'}
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -383,8 +383,8 @@ export function TaskCard({
           {/* Due Date */}
           {task.due_date && (
             <div className={`flex items-center space-x-1 text-sm mb-3 ${
-              isOverdue $1 'text-red-600 font-medium' :
-              isDueSoon $2 'text-yellow-600 font-medium' : 'text-gray-600'
+              isOverdue ? 'text-red-600 font-medium' :
+              isDueSoon ? 'text-yellow-600 font-medium' : 'text-gray-600'
             }`}>
               <Calendar className="h-4 w-4" />
               <span>{new Date(task.due_date).toLocaleDateString('ru-RU')}</span>
@@ -451,7 +451,7 @@ export function TaskCard({
         <EditTaskModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
-          onTaskUpdated={onTaskUpdated}
+          onTaskUpdated={onTaskUpdated || (() => {})}
           task={task}
         />
       )}
