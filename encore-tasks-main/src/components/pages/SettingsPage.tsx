@@ -26,9 +26,9 @@ export function SettingsPage() {
   const [showWarning, setShowWarning] = useState(false);
 
   const [profileData, setProfileData] = useState({
-    name: state.currentUser$1.name || "",
-    email: state.currentUser$1.email || "",
-    avatar: state.currentUser$1.avatar || ""
+    name: state.currentUser?.name || "",
+    email: state.currentUser?.email || "",
+    avatar: state.currentUser?.avatar || ""
   });
 
   const [passwordData, setPasswordData] = useState({

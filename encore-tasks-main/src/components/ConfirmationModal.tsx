@@ -8,9 +8,9 @@ interface ConfirmationModalProps {
   onConfirm: () => void;
   title: string;
   message: string;
-  confirmText$1: string;
-  cancelText$2: string;
-  type$3: 'danger' | 'warning' | 'info';
+  confirmText?: string;
+  cancelText?: string;
+  type?: 'danger' | 'warning' | 'info';
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({

@@ -4,9 +4,9 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 interface ConfirmationOptions {
   title: string;
   message: string;
-  confirmText$1: string;
-  cancelText$2: string;
-  type$3: 'danger' | 'warning' | 'info';
+  confirmText?: string;
+  cancelText?: string;
+  type?: 'danger' | 'warning' | 'info';
 }
 
 interface UseConfirmationReturn {

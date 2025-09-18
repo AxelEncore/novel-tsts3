@@ -316,7 +316,7 @@ export function TopBar({
 
             {/* User Dropdown */}
             {isUserProfileOpen && (
-              <div className="absolute right-0 top-full mt-2 w-64 bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl z-50">
+              <div className="absolute right-0 top-full mt-2 w-64 bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl z-[9999]">
                 <div className="p-4 border-b border-white/10">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
@@ -434,7 +434,7 @@ export function TopBar({
           onClose={() => setIsCreateTaskModalOpen(false)}
           onSubmit={async (data: any) => { await handleCreateTask(data); }}
           project={currentProject}
-          columnId=""
+          columnId={0}
           projectUsers={state.users.filter(user => user.isApproved)}
         />
       )}
