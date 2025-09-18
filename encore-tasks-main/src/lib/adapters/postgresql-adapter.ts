@@ -32,30 +32,62 @@ export class PostgreSQLAdapter {
       ssl: sslEnabled
     });
 
-    this.pool = new Pool({
-      host,
-      port,
-      database,
-      user,
-      password,
-      ssl: sslEnabled ? { rejectUnauthorized: false } : false,
-      max: parseInt(process.env.DB_POOL_MAX || process.env.POSTGRES_MAX_CONNECTIONS || '20'),
-      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || process.env.POSTGRES_IDLE_TIMEOUT || '30000'),
-      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || process.env.POSTGRES_CONNECTION_TIMEOUT || '10000'),
-    });
+    // For Replit/Neon, prefer DATABASE_URL if available
+    if (process.env.DATABASE_URL) {
+      this.pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+        max: 5, // Reduced to avoid connection issues
+        idleTimeoutMillis: 60000, // 1 minute
+        connectionTimeoutMillis: 20000, // 20 seconds
+        acquireTimeoutMillis: 20000, // 20 seconds
+        statement_timeout: 30000, // 30 seconds
+        query_timeout: 30000, // 30 seconds
+      });
+    } else {
+      this.pool = new Pool({
+        host,
+        port,
+        database,
+        user,
+        password,
+        ssl: sslEnabled ? { rejectUnauthorized: false } : false,
+        max: 5, // Reduced
+        idleTimeoutMillis: 60000,
+        connectionTimeoutMillis: 20000,
+        acquireTimeoutMillis: 20000,
+      });
+    }
   }
 
   async initialize(): Promise<void> {
-    try {
-      // Test connection
-      const client = await this.pool.connect();
-      await client.query('SELECT NOW()');
-      client.release();
-      this.isInitialized = true;
-      console.log('✅ PostgreSQL adapter initialized successfully');
-    } catch (error) {
-      console.error('❌ PostgreSQL adapter initialization failed:', error);
-      throw error;
+    if (this.isInitialized) {
+      return; // Already initialized
+    }
+    
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries && !this.isInitialized) {
+      try {
+        console.log(`🔄 PostgreSQL connection attempt ${retryCount + 1}/${maxRetries}`);
+        // Test connection with timeout
+        const client = await this.pool.connect();
+        await client.query('SELECT NOW()');
+        client.release();
+        this.isInitialized = true;
+        console.log('✅ PostgreSQL adapter initialized successfully');
+        return;
+      } catch (error) {
+        retryCount++;
+        console.error(`❌ PostgreSQL connection attempt ${retryCount} failed:`, error);
+        if (retryCount >= maxRetries) {
+          console.error('❌ PostgreSQL adapter initialization failed after all retries');
+          throw new Error('Database connection failed after retries');
+        }
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+      }
     }
   }
 
