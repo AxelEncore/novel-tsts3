@@ -25,19 +25,12 @@ export function Layout({ children }: LayoutProps) {
   const { state, dispatch, loadProjects, loadUsers } = useApp();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState("boards");
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(
-    !state.isAuthenticated
-  );
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   
-  // Debug logging
-  console.log('🔍 Layout: Current state:', {
-    isAuthenticated: state.isAuthenticated,
-    isLoading: state.isLoading,
-    currentUser: state.currentUser
-  });
-
-  // Get the current active project
-  const currentProject = state.selectedProject || (state.projects && state.projects.length > 0 ? state.projects[0] : undefined);
+  // Update auth modal state based on authentication
+  useEffect(() => {
+    setIsAuthModalOpen(!state.isAuthenticated);
+  }, [state.isAuthenticated]);
 
   const handleNavigate = (page: string) => {
     setCurrentPage(page);
@@ -46,6 +39,10 @@ export function Layout({ children }: LayoutProps) {
     if (page === "notifications") {
       dispatch({ type: "MARK_ALL_NOTIFICATIONS_READ" });
     }
+  };
+
+  const handleToggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
   };
 
   // Apply theme settings
@@ -77,157 +74,126 @@ export function Layout({ children }: LayoutProps) {
     document.documentElement.lang = language;
   }, [state.settings?.language]);
 
-  // Update auth modal state when authentication changes
-  useEffect(() => {
-    setIsAuthModalOpen(!state.isAuthenticated);
-  }, [state.isAuthenticated]);
+  // Show authentication modal if not authenticated
+  if (!state.isAuthenticated && !state.isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900/20 via-purple-900/20 to-pink-900/20 dark:from-indigo-950/40 dark:via-purple-950/40 dark:to-pink-950/40">
+        <AuthModal 
+          isOpen={isAuthModalOpen} 
+          onClose={() => setIsAuthModalOpen(false)} 
+        />
+      </div>
+    );
+  }
 
-  // Load initial data when authenticated
-  useEffect(() => {
-    if (state.isAuthenticated && state.currentUser) {
-      loadProjects();
-      loadUsers();
-    }
-  }, [state.isAuthenticated]);
-
-  // Listen for navigation events from calendar
-  useEffect(() => {
-    const handleNavigateToBoards = () => {
-      handleNavigate("boards");
-    };
-
-    window.addEventListener("navigate-to-boards", handleNavigateToBoards);
-    return () => {
-      window.removeEventListener("navigate-to-boards", handleNavigateToBoards);
-    };
-  }, [handleNavigate]);
-
-  // Show loading screen during initialization
+  // Show loading screen
   if (state.isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 to-gray-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-          <p className="text-gray-300">Загрузка...</p>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900/20 via-purple-900/20 to-pink-900/20 dark:from-indigo-950/40 dark:via-purple-950/40 dark:to-pink-950/40 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
+  // Show welcome screen if authenticated but no projects
+  if (state.isAuthenticated && state.projects.length === 0 && currentPage === "boards") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900/20 via-purple-900/20 to-pink-900/20 dark:from-indigo-950/40 dark:via-purple-950/40 dark:to-pink-950/40">
+        <div className="flex h-screen">
+          <Sidebar
+            isCollapsed={sidebarCollapsed}
+            onToggle={handleToggleSidebar}
+            onNavigate={handleNavigate}
+            currentPage={currentPage}
+          />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <TopBar
+              onToggleSidebar={handleToggleSidebar}
+              sidebarCollapsed={sidebarCollapsed}
+              onNavigate={handleNavigate}
+              currentPage={currentPage}
+              currentProject={undefined}
+            />
+            <main className="flex-1 overflow-auto p-6">
+              <NoProjectsScreen />
+            </main>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Show auth modal if not authenticated
-  if (!state.isAuthenticated && !state.isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 to-gray-800">
-        <AuthModal isOpen={true} onClose={() => {}} />
-      </div>
-    );
-  }
+  // Get the current active project
+  const currentProject = state.selectedProject || (state.projects.length > 0 ? state.projects[0] : undefined);
 
-  // Show welcome screen for unapproved users
-  if (state.currentUser && !state.currentUser.isApproved && state.currentUser.role === 'user') {
-    return <WelcomeScreen />;
-  }
-
-  // Show no projects screen for approved users without projects
-  if (state.currentUser && state.currentUser.isApproved && state.currentUser.role === 'user') {
-    const userProjects = state.projects.filter(project => 
-      project.members?.some(member => member.userId === state.currentUser?.id)
-    );
-    if (userProjects.length === 0) {
-      return <NoProjectsScreen />;
-    }
-  }
-
-  // Show admin panel for admin users
-  if (state.currentUser && state.currentUser.role === 'admin' && currentPage === 'admin') {
-    return <AdminPanel onNavigate={handleNavigate} />;
-  }
-
-  const renderPage = () => {
+  // Render main content based on current page
+  const renderPageContent = () => {
     switch (currentPage) {
       case "home":
-        return <HomePage onNavigate={handleNavigate} data-oid="hvlzykk" />;
+        return <HomePage onNavigate={handleNavigate} />;
       case "projects":
-        return <ProjectsPage onNavigate={handleNavigate} data-oid="projects-page" />;
-      case "calendar":
-        return <CalendarPage data-oid="37_ovjc" />;
-      case "team":
-        return <TeamPage data-oid="bknzp_w" />;
-      case "notifications":
-        return <NotificationsPage data-oid="69l3ox-" />;
-      case "settings":
-        return <SettingsPage data-oid="7klkex1" />;
+        return <ProjectsPage onNavigate={handleNavigate} />;
       case "boards":
-      default:
-        if (children) {
-          return children;
-        }
-        
         if (!currentProject) {
-          return <div className="flex items-center justify-center h-full text-gray-500">Выберите проект для работы с досками</div>;
+          return <NoProjectsScreen />;
         }
-        
-        const currentBoard = currentProject?.boards?.[0];
-        if (!currentBoard) {
-          return <div className="flex items-center justify-center h-full text-gray-500">В проекте нет досок</div>;
+        // Get boards for current project
+        const projectBoards = state.boards.filter(board => board.project_id === currentProject.id);
+        if (projectBoards.length === 0) {
+          return (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <h2 className="text-xl text-gray-400 mb-4">Нет досок в проекте</h2>
+                <p className="text-gray-500">Создайте первую доску для начала работы</p>
+              </div>
+            </div>
+          );
         }
-        
-        return <KanbanBoard board={currentBoard} data-oid="z.s0h3k" />;
+        // Show first board or selected board
+        const selectedBoard = state.selectedBoard || projectBoards[0];
+        return <KanbanBoard board={selectedBoard} />;
+      case "calendar":
+        return <CalendarPage />;
+      case "team":
+        return <TeamPage />;
+      case "notifications":
+        return <NotificationsPage />;
+      case "admin":
+        // Only show for admin users
+        if (state.currentUser?.role === "admin") {
+          return <AdminPanel onNavigate={handleNavigate} />;
+        }
+        return <div className="text-center text-red-500">Доступ запрещён</div>;
+      case "settings":
+        return <SettingsPage />;
+      default:
+        return <HomePage onNavigate={handleNavigate} />;
     }
   };
 
   return (
-    <div
-      className={cn(
-        "app-container h-screen flex flex-col lg:flex-row overflow-hidden animate-fade-in",
-        state.settings?.compactMode && "compact-mode",
-        state.settings?.theme === 'light' && "light-theme"
-      )}
-      data-oid="gcj74jv">
-
-      {/* Sidebar */}
-      <div
-        className={`${
-        sidebarCollapsed ? "hidden lg:block lg:w-16" : "fixed lg:relative inset-y-0 left-0 z-50 w-80 lg:w-80"} transition-all duration-300 flex-shrink-0 sidebar-enter`
-        }
-        data-oid="-t-odoy">
-
+    <div className="min-h-screen bg-gradient-to-br from-indigo-900/20 via-purple-900/20 to-pink-900/20 dark:from-indigo-950/40 dark:via-purple-950/40 dark:to-pink-950/40">
+      <div className="flex h-screen">
         <Sidebar
           isCollapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onToggle={handleToggleSidebar}
           onNavigate={handleNavigate}
           currentPage={currentPage}
-          data-oid="bnxtoq_" />
-
-      </div>
-
-      {/* Overlay for mobile sidebar */}
-      {!sidebarCollapsed && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarCollapsed(true)}
         />
-      )}
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-h-0 animate-slide-in-right" data-oid="169v9vc">
-        <TopBar
-          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-          sidebarCollapsed={sidebarCollapsed}
-          onNavigate={handleNavigate}
-          currentPage={currentPage}
-          currentProject={currentProject} />
-
-        <main className="flex-1 overflow-auto page-enter" data-oid="v:znibt">
-          {renderPage()}
-        </main>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <TopBar
+            onToggleSidebar={handleToggleSidebar}
+            sidebarCollapsed={sidebarCollapsed}
+            onNavigate={handleNavigate}
+            currentPage={currentPage}
+            currentProject={currentProject}
+          />
+          <main className="flex-1 overflow-auto p-6">
+            {renderPageContent()}
+          </main>
+        </div>
       </div>
-
-      {/* Background effects */}
-      <div className="background-effects" data-oid="13h43gs">
-        <div className="bg-effect-1" data-oid="l.60xyu"></div>
-        <div className="bg-effect-2" data-oid="x0h_vrf"></div>
-      </div>
+      {children}
     </div>
   );
 }
