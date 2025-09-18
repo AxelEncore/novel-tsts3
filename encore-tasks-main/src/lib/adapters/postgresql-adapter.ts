@@ -11,17 +11,37 @@ export class PostgreSQLAdapter {
   private isInitialized = false;
 
   constructor() {
+    // Используем переменные окружения Replit или fallback на стандартные
+    const host = process.env.PGHOST || process.env.POSTGRES_HOST || process.env.DB_HOST || 'localhost';
+    const port = parseInt(process.env.PGPORT || process.env.POSTGRES_PORT || process.env.DB_PORT || '5432');
+    const database = process.env.PGDATABASE || process.env.POSTGRES_DB || process.env.DB_NAME || 'encore_tasks';
+    const user = process.env.PGUSER || process.env.POSTGRES_USER || process.env.DB_USER || 'postgres';
+    const password = process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD || 'postgres';
+    
+    // SSL настройки для Replit/Neon
+    const sslEnabled = process.env.DB_SSL === 'true' || 
+                      process.env.POSTGRES_SSL === 'require' || 
+                      process.env.DATABASE_URL?.includes('sslmode=require') ||
+                      host.includes('neon.tech');
+    
+    console.log('🔧 PostgreSQL Config:', {
+      host: host.substring(0, 20) + '...',
+      port,
+      database,
+      user,
+      ssl: sslEnabled
+    });
+
     this.pool = new Pool({
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432'),
-      database: process.env.DB_NAME || 'encore_tasks',
-      user: process.env.DB_USER || 'encore_user',
-      password: process.env.DB_PASSWORD || 'encore_password',
-      ssl: (process.env.DB_SSL === 'true' || process.env.POSTGRES_SSL === 'require' || process.env.DATABASE_URL?.includes('sslmode=require')) 
-        ? { rejectUnauthorized: false } : false,
-      max: parseInt(process.env.DB_POOL_MAX || '20'),
-      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000'),
-      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '2000'),
+      host,
+      port,
+      database,
+      user,
+      password,
+      ssl: sslEnabled ? { rejectUnauthorized: false } : false,
+      max: parseInt(process.env.DB_POOL_MAX || process.env.POSTGRES_MAX_CONNECTIONS || '20'),
+      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || process.env.POSTGRES_IDLE_TIMEOUT || '30000'),
+      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || process.env.POSTGRES_CONNECTION_TIMEOUT || '10000'),
     });
   }
 

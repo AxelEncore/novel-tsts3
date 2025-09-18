@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
-import { databaseAdapter } from '@/lib/database-adapter';
+import { verifyAuth } from '@/lib/auth';
+import { dbAdapter } from '@/lib/database-adapter';
+
+const databaseAdapter = dbAdapter;
 
 // Схема валидации для создания проекта
 const createProjectSchema = z.object({
@@ -38,8 +39,8 @@ const fullProjectSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     // Проверка аутентификации
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    const authResult = await verifyAuth(request);
+    if (!authResult.success || !authResult.user) {
       return NextResponse.json(
         { success: false, error: 'Не авторизован' },
         { status: 401 }
@@ -52,8 +53,11 @@ export async function POST(request: NextRequest) {
     
     const { project: projectData, boards: boardsData = [] } = validatedData;
 
-    // Получение пользователя
-    const user = await databaseAdapter.getUserByEmail(session.user.email);
+    // Инициализация базы данных
+    await databaseAdapter.initialize();
+
+    // Получение пользователя по ID (уже есть в authResult)
+    const user = await databaseAdapter.getUserById(authResult.user.userId);
 
     if (!user) {
       return NextResponse.json(
