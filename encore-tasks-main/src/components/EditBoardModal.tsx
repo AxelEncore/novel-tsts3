@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 interface Board {
   id: string;
   name: string;
-  description$1: string;
+  description: string;
   project_id: string;
   visibility: 'public' | 'private';
 }
@@ -29,10 +29,10 @@ interface BoardFormData {
 }
 
 interface ValidationErrors {
-  name$1: string;
-  description$2: string;
-  project_id$3: string;
-  visibility$4: string;
+  name?: string;
+  description?: string;
+  project_id?: string;
+  visibility?: string;
 }
 
 interface EditBoardModalProps {
@@ -40,7 +40,7 @@ interface EditBoardModalProps {
   projects: Project[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onBoardUpdated$5: (board: any) => void;
+  onBoardUpdated: (board: any) => void;
 }
 
 export function EditBoardModal({
@@ -86,11 +86,11 @@ export function EditBoardModal({
     }
 
     if (!formData.project_id) {
-      newErrors.project_id = 'Выберите проект';
+      newErrors.project_id = 'Необходимо выбрать проект';
     }
 
-    if (!['public', 'private'].includes(formData.visibility)) {
-      newErrors.visibility = 'Выберите видимость доски';
+    if (!formData.visibility) {
+      newErrors.visibility = 'Необходимо выбрать видимость';
     }
 
     setErrors(newErrors);
@@ -104,159 +104,180 @@ export function EditBoardModal({
       return;
     }
 
-    // Проверяем, есть ли изменения
-    const hasChanges = 
-      formData.name !== board.name ||
-      formData.description !== (board.description || '') ||
-      formData.project_id !== board.project_id ||
-      formData.visibility !== board.visibility;
-
-    if (!hasChanges) {
-      toast.info('Нет изменений для сохранения');
-      onOpenChange(false);
-      return;
-    }
-
     setLoading(true);
-    
+
     try {
       const response = await fetch(`/api/boards/${board.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          project_id: formData.project_id,
+          visibility: formData.visibility,
+        }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        if (data.errors) {
-          // Обработка ошибок валидации от сервера
-          const serverErrors: ValidationErrors = {};
-          data.errors.forEach((error: any) => {
-            if (error.path && error.path.length > 0) {
-              const field = error.path[0] as keyof ValidationErrors;
-              serverErrors[field] = error.message;
-            }
-          });
-          setErrors(serverErrors);
-          toast.error('Проверьте правильность заполнения полей');
-        } else {
-          toast.error(data.error || 'Ошибка при обновлении доски');
-        }
-        return;
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Ошибка при обновлении доски');
       }
 
-      toast.success('Доска успешно обновлена');
-      onOpenChange(false);
+      const { data: updatedBoard } = await response.json();
       
-      if (onBoardUpdated) {
-        onBoardUpdated(data.board);
-      }
+      toast.success('Доска успешно обновлена');
+      onBoardUpdated(updatedBoard);
+      onOpenChange(false);
     } catch (error) {
       console.error('Error updating board:', error);
-      toast.error('Произошла ошибка при обновлении доски');
+      toast.error(
+        error instanceof Error 
+          ? error.message 
+          : 'Ошибка при обновлении доски'
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (field: keyof BoardFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Очистка ошибки при изменении поля
+  const handleChange = (field: keyof BoardFormData, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Очищаем ошибку для этого поля
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+      setErrors(prev => ({
+        ...prev,
+        [field]: undefined
+      }));
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-md">
         <DialogHeader>
-          <DialogTitle>Редактировать доску</DialogTitle>
+          <DialogTitle className="text-xl font-semibold">
+            Редактировать доску
+          </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Название доски */}
           <div className="space-y-2">
-            <Label htmlFor="name">Название доски *</Label>
+            <Label htmlFor="board-name" className="text-sm font-medium text-gray-300">
+              Название доски *
+            </Label>
             <Input
-              id="name"
+              id="board-name"
+              type="text"
               value={formData.name}
-              onChange={(e) => handleInputChange('name', e.target.value)}
+              onChange={(e) => handleChange('name', e.target.value)}
               placeholder="Введите название доски"
-              className={errors.name $1 'border-red-500' : ''}
+              className={`bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 ${
+                errors.name ? 'border-red-500' : ''
+              }`}
               disabled={loading}
             />
             {errors.name && (
-              <p className="text-sm text-red-500">{errors.name}</p>
+              <p className="text-red-400 text-xs mt-1">{errors.name}</p>
             )}
           </div>
 
+          {/* Описание */}
           <div className="space-y-2">
-            <Label htmlFor="description">Описание</Label>
+            <Label htmlFor="board-description" className="text-sm font-medium text-gray-300">
+              Описание
+            </Label>
             <Textarea
-              id="description"
+              id="board-description"
               value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Введите описание доски (необязательно)"
-              className={errors.description $1 'border-red-500' : ''}
-              disabled={loading}
+              onChange={(e) => handleChange('description', e.target.value)}
+              placeholder="Описание доски (необязательно)"
               rows={3}
+              className={`bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500 resize-none ${
+                errors.description ? 'border-red-500' : ''
+              }`}
+              disabled={loading}
             />
             {errors.description && (
-              <p className="text-sm text-red-500">{errors.description}</p>
+              <p className="text-red-400 text-xs mt-1">{errors.description}</p>
             )}
           </div>
 
+          {/* Проект */}
           <div className="space-y-2">
-            <Label htmlFor="project">Проект *</Label>
-            <Select
-              value={formData.project_id}
-              onValueChange={(value) => handleInputChange('project_id', value)}
+            <Label htmlFor="board-project" className="text-sm font-medium text-gray-300">
+              Проект *
+            </Label>
+            <Select 
+              value={formData.project_id} 
+              onValueChange={(value) => handleChange('project_id', value)}
               disabled={loading}
             >
-              <SelectTrigger className={errors.project_id $1 'border-red-500' : ''}>
+              <SelectTrigger className={`bg-gray-800 border-gray-600 text-white focus:border-blue-500 ${
+                errors.project_id ? 'border-red-500' : ''
+              }`}>
                 <SelectValue placeholder="Выберите проект" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-gray-800 border-gray-700">
                 {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
+                  <SelectItem 
+                    key={project.id} 
+                    value={project.id}
+                    className="text-white hover:bg-gray-700"
+                  >
                     {project.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {errors.project_id && (
-              <p className="text-sm text-red-500">{errors.project_id}</p>
+              <p className="text-red-400 text-xs mt-1">{errors.project_id}</p>
             )}
           </div>
 
+          {/* Видимость */}
           <div className="space-y-2">
-            <Label htmlFor="visibility">Видимость *</Label>
-            <Select
-              value={formData.visibility}
-              onValueChange={(value: 'public' | 'private') => handleInputChange('visibility', value)}
+            <Label htmlFor="board-visibility" className="text-sm font-medium text-gray-300">
+              Видимость *
+            </Label>
+            <Select 
+              value={formData.visibility} 
+              onValueChange={(value: 'public' | 'private') => handleChange('visibility', value)}
               disabled={loading}
             >
-              <SelectTrigger className={errors.visibility $1 'border-red-500' : ''}>
+              <SelectTrigger className={`bg-gray-800 border-gray-600 text-white focus:border-blue-500 ${
+                errors.visibility ? 'border-red-500' : ''
+              }`}>
                 <SelectValue placeholder="Выберите видимость" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">Публичная</SelectItem>
-                <SelectItem value="private">Приватная</SelectItem>
+              <SelectContent className="bg-gray-800 border-gray-700">
+                <SelectItem value="private" className="text-white hover:bg-gray-700">
+                  Приватная - доступна только участникам проекта
+                </SelectItem>
+                <SelectItem value="public" className="text-white hover:bg-gray-700">
+                  Публичная - доступна всем пользователям
+                </SelectItem>
               </SelectContent>
             </Select>
             {errors.visibility && (
-              <p className="text-sm text-red-500">{errors.visibility}</p>
+              <p className="text-red-400 text-xs mt-1">{errors.visibility}</p>
             )}
           </div>
 
-          <div className="flex justify-end space-x-2 pt-4">
+          {/* Кнопки действий */}
+          <div className="flex justify-end space-x-3 pt-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
+              className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white"
             >
               Отмена
             </Button>
