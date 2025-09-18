@@ -20,7 +20,7 @@ function createNotification(
     type,
     title,
     message,
-    taskId: taskId$1,
+    taskId,
     projectId,
     userId,
     isRead: false,
