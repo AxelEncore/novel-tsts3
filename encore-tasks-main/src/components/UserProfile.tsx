@@ -21,7 +21,7 @@ import {
 interface UserProfileProps {
   isOpen: boolean;
   onClose: () => void;
-  userId$1: string; // If not provided, shows current user profile
+  userId?: string; // If not provided, shows current user profile
 }
 
 export function UserProfile({ isOpen, onClose, userId }: UserProfileProps) {
