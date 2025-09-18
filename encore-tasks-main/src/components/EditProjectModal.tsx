@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { X, Users, Hash, MessageSquare, Plus, Trash2, AlertCircle, Save } from 'lucide-react';
-import { AppContext } from '../context/AppContext';
+import { AppContext } from '../contexts/AppContext';
 import { User, UpdateProjectDto, ProjectWithStats } from '../types/core.types';
 import { toast } from 'sonner';
 
@@ -17,18 +17,18 @@ interface ProjectFormData {
   color: string;
   icon: string;
   members: User[];
-  telegramChatId$1: string;
-  telegramTopicId$2: string;
+  telegramChatId: string;
+  telegramTopicId: string;
 }
 
 interface ValidationErrors {
-  name$3: string;
-  description$4: string;
-  color$5: string;
-  icon$6: string;
-  telegramChatId$7: string;
-  telegramTopicId$8: string;
-  members$9: string;
+  name: string;
+  description: string;
+  color: string;
+  icon: string;
+  telegramChatId: string;
+  telegramTopicId: string;
+  members: string;
 }
 
 const EditProjectModal: React.FC<EditProjectModalProps> = ({
@@ -48,79 +48,78 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({
     telegramTopicId: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<ValidationErrors>({});
+  const [errors, setErrors] = useState<Partial<ValidationErrors>>({});
   const [availableUsers, setAvailableUsers] = useState<User[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    if (users && currentUser) {
-      const otherUsers = users.filter(user => user.id !== currentUser.id);
-      setAvailableUsers(otherUsers);
-    }
-  }, [users, currentUser]);
-
-  useEffect(() => {
     if (isOpen && project) {
-      // Загружаем данные проекта в форму
       setFormData({
-        name: project.name,
+        name: project.name || '',
         description: project.description || '',
-        color: project.color,
-        icon: project.icon,
+        color: project.color || '#3B82F6',
+        icon: project.icon || '📋',
         members: project.members || [],
         telegramChatId: project.telegram_chat_id || '',
         telegramTopicId: project.telegram_topic_id || '',
       });
       setErrors({});
       setHasChanges(false);
+      
+      // Load available users for membership management
+      const nonMembers = users.filter(user => 
+        !project.members?.some(member => member.id === user.id)
+      );
+      setAvailableUsers(nonMembers);
     }
-  }, [isOpen, project]);
+  }, [isOpen, project, users]);
+
+  // Track changes
+  useEffect(() => {
+    if (project) {
+      const changed = 
+        formData.name !== (project.name || '') ||
+        formData.description !== (project.description || '') ||
+        formData.color !== (project.color || '#3B82F6') ||
+        formData.icon !== (project.icon || '📋') ||
+        formData.telegramChatId !== (project.telegram_chat_id || '') ||
+        formData.telegramTopicId !== (project.telegram_topic_id || '') ||
+        JSON.stringify(formData.members.map(m => m.id).sort()) !== 
+        JSON.stringify((project.members || []).map(m => m.id).sort());
+      
+      setHasChanges(changed);
+    }
+  }, [formData, project]);
 
   const validateForm = (): boolean => {
-    const newErrors: ValidationErrors = {};
+    const newErrors: Partial<ValidationErrors> = {};
 
-    // Валидация названия
     if (!formData.name.trim()) {
       newErrors.name = 'Название проекта обязательно';
     } else if (formData.name.trim().length < 2) {
       newErrors.name = 'Название должно содержать минимум 2 символа';
     } else if (formData.name.trim().length > 100) {
-      newErrors.name = 'Название слишком длинное (максимум 100 символов)';
+      newErrors.name = 'Название не должно превышать 100 символов';
     }
 
-    // Валидация описания
     if (formData.description && formData.description.length > 500) {
-      newErrors.description = 'Описание слишком длинное (максимум 500 символов)';
+      newErrors.description = 'Описание не должно превышать 500 символов';
     }
 
-    // Валидация цвета
-    const colorRegex = /^#[0-9A-Fa-f]{6}$/;
-    if (!colorRegex.test(formData.color)) {
-      newErrors.color = 'Неверный формат цвета';
-    }
-
-    // Валидация иконки
-    if (!formData.icon.trim()) {
-      newErrors.icon = 'Иконка обязательна';
-    }
-
-    // Валидация Telegram Chat ID
     if (formData.telegramChatId && formData.telegramChatId.trim()) {
-      const chatIdRegex = /^-$1\d+$/;
+      const chatIdRegex = /^-?\d+$/;
       if (!chatIdRegex.test(formData.telegramChatId.trim())) {
-        newErrors.telegramChatId = 'Неверный формат Chat ID (должен быть числом)';
+        newErrors.telegramChatId = 'ID чата должен содержать только цифры и может начинаться с "-"';
       }
     }
 
-    // Валидация Telegram Topic ID
     if (formData.telegramTopicId && formData.telegramTopicId.trim()) {
       const topicIdRegex = /^\d+$/;
       if (!topicIdRegex.test(formData.telegramTopicId.trim())) {
-        newErrors.telegramTopicId = 'Неверный формат Topic ID (должен быть положительным числом)';
+        newErrors.telegramTopicId = 'ID топика должен содержать только цифры';
       }
     }
 
-    // Валидация участников
     if (formData.members.length === 0) {
       newErrors.members = 'Проект должен иметь хотя бы одного участника';
     }
@@ -131,32 +130,20 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser) {
-      toast.error('Пользователь не авторизован');
-      return;
-    }
 
-    if (!validateForm()) {
-      toast.error('Пожалуйста, исправьте ошибки в форме');
-      return;
-    }
-
-    if (!hasChanges) {
-      toast.info('Нет изменений для сохранения');
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsSubmitting(true);
 
     try {
       const updateData: UpdateProjectDto = {
         name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
+        description: formData.description.trim(),
         color: formData.color,
-        icon: formData.icon.trim(),
+        icon: formData.icon,
         member_ids: formData.members.map(member => member.id),
-        telegram_chat_id: formData.telegramChatId$1.trim() || undefined,
-        telegram_topic_id: formData.telegramTopicId$2.trim() || undefined,
+        telegram_chat_id: formData.telegramChatId.trim() || undefined,
+        telegram_topic_id: formData.telegramTopicId.trim() || undefined,
       };
 
       const response = await fetch(`/api/projects/${project.id}`, {
@@ -167,304 +154,306 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({
         body: JSON.stringify(updateData),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        if (result.details && Array.isArray(result.details)) {
-          // Обработка ошибок валидации Zod
-          const validationErrors: ValidationErrors = {};
-          result.details.forEach((error: any) => {
-            if (error.path && error.path.length > 0) {
-              const field = error.path[0];
-              validationErrors[field as keyof ValidationErrors] = error.message;
-            }
-          });
-          setErrors(validationErrors);
-          toast.error('Ошибки валидации данных');
-        } else {
-          toast.error(result.error || 'Не удалось обновить проект');
-        }
-        return;
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Ошибка при обновлении проекта');
       }
 
-      if (result.success && result.data) {
-        toast.success('Проект успешно обновлен!');
-        onProjectUpdated(result.data);
-        onClose();
-      } else {
-        toast.error('Неожиданная ошибка при обновлении проекта');
-      }
-    } catch (err) {
-      console.error('Error updating project:', err);
-      toast.error('Произошла ошибка при обновлении проекта');
+      const { project: updatedProject } = await response.json();
+      
+      toast.success('Проект успешно обновлен');
+      onProjectUpdated(updatedProject);
+      onClose();
+
+    } catch (error) {
+      console.error('Error updating project:', error);
+      toast.error(
+        error instanceof Error 
+          ? error.message 
+          : 'Ошибка при обновлении проекта'
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const addMember = (user: User) => {
-    if (!formData.members.find(member => member.id === user.id)) {
-      setFormData(prev => ({
-        ...prev,
-        members: [...prev.members, user]
-      }));
-      setHasChanges(true);
-      // Очищаем ошибку участников при добавлении
-      if (errors.members) {
-        setErrors(prev => ({ ...prev, members: undefined }));
-      }
-    }
+    setFormData(prev => ({
+      ...prev,
+      members: [...prev.members, user]
+    }));
+    setAvailableUsers(prev => prev.filter(u => u.id !== user.id));
   };
 
   const removeMember = (userId: string) => {
-    if (userId === currentUser$1.id) return; // Нельзя удалить текущего пользователя
+    if (userId === currentUser?.id) return; // Нельзя удалить текущего пользователя
+    
+    const memberToRemove = formData.members.find(m => m.id === userId);
+    if (!memberToRemove) return;
+
     setFormData(prev => ({
       ...prev,
-      members: prev.members.filter(member => member.id !== userId)
+      members: prev.members.filter(m => m.id !== userId)
     }));
-    setHasChanges(true);
+    setAvailableUsers(prev => [...prev, memberToRemove]);
   };
 
-  const handleInputChange = (field: keyof ProjectFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    setHasChanges(true);
-    // Очищаем ошибку для поля при изменении
-    if (errors[field as keyof ValidationErrors]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+  const resetForm = () => {
+    if (project) {
+      setFormData({
+        name: project.name || '',
+        description: project.description || '',
+        color: project.color || '#3B82F6',
+        icon: project.icon || '📋',
+        members: project.members || [],
+        telegramChatId: project.telegram_chat_id || '',
+        telegramTopicId: project.telegram_topic_id || '',
+      });
+      setErrors({});
+      setHasChanges(false);
     }
   };
 
-  if (!isOpen) return null;
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
+  if (!isOpen || !project) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Редактировать проект</h2>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-white/10">
+          <h2 className="text-xl font-semibold text-white">Редактировать проект</h2>
           <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
+            onClick={handleClose}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             disabled={isSubmitting}
           >
-            <X size={20} />
+            <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Название проекта *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => handleInputChange('name', e.target.value)}
-              className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                errors.name $1 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Введите название проекта"
-              disabled={isSubmitting}
-              maxLength={100}
-            />
-            {errors.name && (
-              <p className="mt-1 text-sm text-red-600 flex items-center">
-                <AlertCircle size={14} className="mr-1" />
-                {errors.name}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Описание
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none ${
-                errors.description $1 'border-red-500' : 'border-gray-300'
-              }`}
-              rows={3}
-              placeholder="Опишите цель и задачи проекта"
-              disabled={isSubmitting}
-              maxLength={500}
-            />
-            {errors.description && (
-              <p className="mt-1 text-sm text-red-600 flex items-center">
-                <AlertCircle size={14} className="mr-1" />
-                {errors.description}
-              </p>
-            )}
-            <p className="mt-1 text-xs text-gray-500">
-              {formData.description.length}/500 символов
-            </p>
-          </div>
-
-          <div className="flex space-x-4">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Цвет
-              </label>
-              <input
-                type="color"
-                value={formData.color}
-                onChange={(e) => handleInputChange('color', e.target.value)}
-                className={`w-full h-10 border rounded-md cursor-pointer ${
-                  errors.color $1 'border-red-500' : 'border-gray-300'
-                }`}
-                disabled={isSubmitting}
-              />
-              {errors.color && (
-                <p className="mt-1 text-sm text-red-600 flex items-center">
-                  <AlertCircle size={14} className="mr-1" />
-                  {errors.color}
-                </p>
-              )}
-            </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Иконка *
-              </label>
-              <input
-                type="text"
-                value={formData.icon}
-                onChange={(e) => handleInputChange('icon', e.target.value)}
-                className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                  errors.icon $1 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="📋"
-                disabled={isSubmitting}
-                maxLength={10}
-              />
-              {errors.icon && (
-                <p className="mt-1 text-sm text-red-600 flex items-center">
-                  <AlertCircle size={14} className="mr-1" />
-                  {errors.icon}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Hash size={16} className="inline mr-1" />
-              Telegram Chat ID
-            </label>
-            <input
-              type="text"
-              value={formData.telegramChatId}
-              onChange={(e) => handleInputChange('telegramChatId', e.target.value)}
-              className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                errors.telegramChatId $1 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="-1001234567890"
-              disabled={isSubmitting}
-            />
-            {errors.telegramChatId && (
-              <p className="mt-1 text-sm text-red-600 flex items-center">
-                <AlertCircle size={14} className="mr-1" />
-                {errors.telegramChatId}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <MessageSquare size={16} className="inline mr-1" />
-              Telegram Topic ID
-            </label>
-            <input
-              type="text"
-              value={formData.telegramTopicId}
-              onChange={(e) => handleInputChange('telegramTopicId', e.target.value)}
-              className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                errors.telegramTopicId $1 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="123"
-              disabled={isSubmitting}
-            />
-            {errors.telegramTopicId && (
-              <p className="mt-1 text-sm text-red-600 flex items-center">
-                <AlertCircle size={14} className="mr-1" />
-                {errors.telegramTopicId}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Users size={16} className="inline mr-1" />
-              Участники проекта *
-            </label>
+        {/* Content */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Basic Information */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-white">Основная информация</h3>
             
-            {/* Текущие участники */}
-            <div className="space-y-2 mb-3">
-              {formData.members.map(member => (
-                <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded border">
-                  <span className="text-sm font-medium">
-                    {member.name} {member.id === currentUser$1.id && '(Вы)'}
-                  </span>
-                  {member.id !== currentUser$2.id && (
-                    <button
-                      type="button"
-                      onClick={() => removeMember(member.id)}
-                      className="text-red-500 hover:text-red-700 transition-colors"
-                      disabled={isSubmitting}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
+            <div>
+              <label htmlFor="project-name" className="block text-sm font-medium text-white mb-2">
+                Название проекта *
+              </label>
+              <input
+                id="project-name"
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Введите название проекта"
+                className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white/5 text-white placeholder-gray-400 ${
+                  errors.name ? 'border-red-500' : 'border-gray-600'
+                }`}
+                disabled={isSubmitting}
+              />
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-400">{errors.name}</p>
+              )}
             </div>
 
-            {/* Добавление участников */}
+            <div>
+              <label htmlFor="project-description" className="block text-sm font-medium text-white mb-2">
+                Описание
+              </label>
+              <textarea
+                id="project-description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Введите описание проекта"
+                rows={3}
+                className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none bg-white/5 text-white placeholder-gray-400 ${
+                  errors.description ? 'border-red-500' : 'border-gray-600'
+                }`}
+                disabled={isSubmitting}
+              />
+              {errors.description && (
+                <p className="mt-1 text-sm text-red-400">{errors.description}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="project-color" className="block text-sm font-medium text-white mb-2">
+                  Цвет проекта
+                </label>
+                <input
+                  id="project-color"
+                  type="color"
+                  value={formData.color}
+                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                  className={`w-full h-10 border rounded-md cursor-pointer bg-white/5 ${
+                    errors.color ? 'border-red-500' : 'border-gray-600'
+                  }`}
+                  disabled={isSubmitting}
+                />
+                {errors.color && (
+                  <p className="mt-1 text-sm text-red-400">{errors.color}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="project-icon" className="block text-sm font-medium text-white mb-2">
+                  Иконка проекта
+                </label>
+                <input
+                  id="project-icon"
+                  type="text"
+                  value={formData.icon}
+                  onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                  placeholder="📋"
+                  className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white/5 text-white placeholder-gray-400 ${
+                    errors.icon ? 'border-red-500' : 'border-gray-600'
+                  }`}
+                  disabled={isSubmitting}
+                />
+                {errors.icon && (
+                  <p className="mt-1 text-sm text-red-400">{errors.icon}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Telegram Integration */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-white">Интеграция с Telegram</h3>
+            
+            <div>
+              <label htmlFor="telegram-chat-id" className="block text-sm font-medium text-white mb-2">
+                ID чата Telegram
+              </label>
+              <input
+                id="telegram-chat-id"
+                type="text"
+                value={formData.telegramChatId}
+                onChange={(e) => setFormData({ ...formData, telegramChatId: e.target.value })}
+                placeholder="-1001234567890"
+                className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white/5 text-white placeholder-gray-400 ${
+                  errors.telegramChatId ? 'border-red-500' : 'border-gray-600'
+                }`}
+                disabled={isSubmitting}
+              />
+              {errors.telegramChatId && (
+                <p className="mt-1 text-sm text-red-400">{errors.telegramChatId}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="telegram-topic-id" className="block text-sm font-medium text-white mb-2">
+                ID топика Telegram
+              </label>
+              <input
+                id="telegram-topic-id"
+                type="text"
+                value={formData.telegramTopicId}
+                onChange={(e) => setFormData({ ...formData, telegramTopicId: e.target.value })}
+                placeholder="123"
+                className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white/5 text-white placeholder-gray-400 ${
+                  errors.telegramTopicId ? 'border-red-500' : 'border-gray-600'
+                }`}
+                disabled={isSubmitting}
+              />
+              {errors.telegramTopicId && (
+                <p className="mt-1 text-sm text-red-400">{errors.telegramTopicId}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Team Management */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-white">Участники проекта</h3>
+            
+            {/* Current Members */}
+            <div>
+              <h4 className="text-sm font-medium text-white mb-2">Текущие участники</h4>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {formData.members.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between p-2 bg-white/5 rounded-lg border border-white/10"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Users className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm font-medium text-white">
+                        {member.name} {member.id === currentUser?.id && '(Вы)'}
+                      </span>
+                      <span className="text-xs text-gray-400">({member.email})</span>
+                    </div>
+                    {member.id !== currentUser?.id && (
+                      <button
+                        type="button"
+                        onClick={() => removeMember(member.id)}
+                        className="p-1 hover:bg-red-500/20 rounded text-red-400 hover:text-red-300 transition-colors"
+                        disabled={isSubmitting}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {errors.members && (
+                <p className="mt-1 text-sm text-red-400">{errors.members}</p>
+              )}
+            </div>
+
+            {/* Available Users */}
             {availableUsers.length > 0 && (
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Добавить участников:</label>
-                <div className="space-y-1 max-h-32 overflow-y-auto border rounded p-2">
-                  {availableUsers
-                    .filter(user => !formData.members.find(member => member.id === user.id))
-                    .map(user => (
-                    <button
+                <h4 className="text-sm font-medium text-white mb-2">Добавить участников</h4>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {availableUsers.map((user) => (
+                    <div
                       key={user.id}
-                      type="button"
-                      onClick={() => addMember(user)}
-                      className="w-full text-left p-2 text-sm bg-white border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-between transition-colors"
-                      disabled={isSubmitting}
+                      className="flex items-center justify-between p-2 bg-white/5 rounded-lg border border-white/10"
                     >
-                      <span>{user.name}</span>
-                      <Plus size={14} className="text-green-500" />
-                    </button>
+                      <div className="flex items-center space-x-2">
+                        <Users className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-white">{user.name}</span>
+                        <span className="text-xs text-gray-400">({user.email})</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addMember(user)}
+                        className="p-1 hover:bg-green-500/20 rounded text-green-400 hover:text-green-300 transition-colors"
+                        disabled={isSubmitting}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
             )}
-            
-            {errors.members && (
-              <p className="mt-1 text-sm text-red-600 flex items-center">
-                <AlertCircle size={14} className="mr-1" />
-                {errors.members}
-              </p>
-            )}
           </div>
 
-          <div className="flex space-x-3 pt-4 border-t">
+          {/* Actions */}
+          <div className="flex justify-end space-x-3 pt-4 border-t border-white/10">
             <button
               type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+              onClick={handleClose}
+              className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
               disabled={isSubmitting}
             >
               Отмена
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !formData.name.trim() || formData.members.length === 0 || !hasChanges}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+              disabled={isSubmitting || !hasChanges}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
             >
               <Save size={16} />
-              <span>{isSubmitting $1 'Сохранение...' : 'Сохранить'}</span>
+              <span>{isSubmitting ? 'Сохранение...' : 'Сохранить'}</span>
             </button>
           </div>
         </form>
