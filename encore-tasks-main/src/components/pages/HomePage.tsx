@@ -15,7 +15,7 @@ import {
 "lucide-react";
 
 interface HomePageProps {
-  onNavigate$1: (page: string) => void;
+  onNavigate: (page: string) => void;
 }
 
 export function HomePage({ onNavigate }: HomePageProps) {
@@ -25,7 +25,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
   
   // Filter tasks for current user only
   const userTasks = state.tasks.filter((task) => 
-    task.assignees$2.some(a => a.id === state.currentUser$3.id)
+    task.assignees?.some((a: any) => a.id === state.currentUser?.id) || false
   );
   
   const todayTasks = userTasks.filter((task) => {
@@ -49,7 +49,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
   });
 
   const myTasks = state.tasks.filter(
-    (task) => task.assignees$1.some(a => a.id === state.currentUser$2.id)
+    (task) => task.assignees?.some((a: any) => a.id === state.currentUser?.id) || false
   );
 
   const handleTaskClick = (task: any) => {
