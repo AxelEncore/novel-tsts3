@@ -374,16 +374,17 @@ export class PostgreSQLAdapter {
   // =====================================================
 
   async createColumn(columnData: any): Promise<any> {
-    const { name, boardId, position } = columnData;
+    const { name, title, boardId, position, color } = columnData;
+    const columnTitle = title || name; // поддержка обоих названий
     const id = uuidv4();
 
     const query = `
-      INSERT INTO columns (id, name, board_id, position, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      INSERT INTO columns (id, title, board_id, position, color, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
       RETURNING *
     `;
 
-    const result = await this.executeRawQuery(query, [id, name, boardId, position || 0]);
+    const result = await this.executeRawQuery(query, [id, columnTitle, boardId, position || 0, color || '#6b7280']);
     return result.rows[0];
   }
 
