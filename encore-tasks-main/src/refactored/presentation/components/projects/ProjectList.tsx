@@ -65,7 +65,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     if (targetUserId) {
       loadProjects();
     }
-  }, [userId, user$2.id, filters, pagination, loadProjects]);
+  }, [userId, user?.id, filters, pagination, loadProjects]);
 
   // Handle search with debouncing
   useEffect(() => {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Task } from "@/types";
+import { Task, Project } from "@/types";
 import { useApp } from "@/contexts/AppContext";
 import { cn, getInitials } from "@/lib/utils";
 import {
@@ -16,7 +16,9 @@ import {
   X,
   Settings,
   LogOut,
-  Activity
+  Activity,
+  Search,
+  ChevronDown
 } from "lucide-react";
 import { useConfirmation } from "@/hooks/useConfirmation";
 import CreateTaskModal from "./CreateTaskModal";
@@ -24,14 +26,13 @@ import BoardManager from "./BoardManager";
 import { CustomSelect } from "./CustomSelect";
 import { TaskActionsModal } from "./TaskActionsModal";
 import { UserProfile } from "./UserProfile";
-import { logTaskCreated } from "@/utils/taskLogger";
 
 interface TopBarProps {
-  onToggleSidebar$1: () => void;
-  sidebarCollapsed$2: boolean;
-  onNavigate$3: (page: string) => void;
-  currentPage$4: string;
-  currentProject$5: any;
+  onToggleSidebar: () => void;
+  sidebarCollapsed: boolean;
+  onNavigate: (page: string) => void;
+  currentPage: string;
+  currentProject?: Project;
 }
 
 export function TopBar({
@@ -48,18 +49,20 @@ export function TopBar({
   const [isBoardManagerOpen, setIsBoardManagerOpen] = useState(false);
   const [isTaskActionsModalOpen, setIsTaskActionsModalOpen] = useState(false);
   const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
 
   const handleCreateTask = async (taskData: {
     title: string;
-    description$1: string;
-    status$2: string;
-    priority$3: string;
-    assigneeId$4: string;
+    description: string;
+    status: string;
+    priority: string;
+    assigneeId: string;
     columnId: string;
-    position$5: number;
-    dueDate$6: Date;
-    estimatedHours$7: number;
-    tags$8: string[];
+    position: number;
+    dueDate: Date;
+    estimatedHours: number;
+    tags: string[];
   }): Promise<boolean> => {
     try {
       const success = await createTask(taskData);
@@ -83,20 +86,17 @@ export function TopBar({
 
   const handleLogout = async () => {
     const confirmed = await confirm({
-      title: "Выход из системы",
       message: "Вы уверены, что хотите выйти?",
-      confirmText: "Выйти",
-      cancelText: "Отмена"
+      title: "Выход из системы"
     });
 
     if (confirmed) {
-      logout();
+      try {
+        await logout();
+      } catch (error) {
+        console.error("Logout error:", error);
+      }
     }
-  };
-
-  const getUnreadNotificationsCount = () => {
-    if (!state.notifications) return 0;
-    return state.notifications.filter(n => !n.isRead).length;
   };
 
   const handleFilterChange = (filterType: string, value: string) => {
@@ -109,328 +109,352 @@ export function TopBar({
   const clearFilters = () => {
     dispatch({
       type: "SET_FILTERS",
-      payload: {
-        assignee: "",
-        priority: "",
-        status: "",
-        deadline: ""
-      }
+      payload: { assignee: "", priority: "", status: "", deadline: "" }
     });
   };
 
-  const hasActiveFilters = () => {
-    return state.filters.assignee || state.filters.priority || state.filters.status || state.filters.deadline;
+  // Get notification count
+  const getNotificationCount = () => {
+    const currentUserId = state.currentUser?.id;
+    if (!currentUserId) return 0;
+    
+    const userNotifications = state.notifications.filter(n => 
+      n.userId === currentUserId && !n.isRead
+    );
+    
+    const adminNotifications = state.currentUser?.role === 'admin' 
+      ? (state.pendingUserNotifications?.length || 0)
+      : 0;
+    
+    return userNotifications.length + adminNotifications;
   };
 
-  const getFilteredTasksCount = () => {
-    if (!state.selectedBoard) return 0;
-    return state.tasks.filter(task => task.board_id === state.selectedBoard?.id).length;
-  };
+  const notificationCount = getNotificationCount();
 
-  const unreadNotifications = getUnreadNotificationsCount();
+  // Get page title
+  const getPageTitle = () => {
+    switch (currentPage) {
+      case "home":
+        return "Главная";
+      case "boards":
+        return currentProject ? `${currentProject.name} - Доски` : "Доски";
+      case "projects":
+        return "Проекты";
+      case "calendar":
+        return "Календарь";
+      case "team":
+        return "Команда";
+      case "notifications":
+        return "Уведомления";
+      case "admin":
+        return "Админ-панель";
+      case "settings":
+        return "Настройки";
+      default:
+        return "Encore Tasks";
+    }
+  };
 
   return (
     <>
-      <div
-        className="relative h-16 bg-gray-900/50 backdrop-blur-xl border-b border-white/10 px-4 lg:px-6 flex items-center justify-between"
-        data-oid="a9tf:m3">
-
-        {/* Left section */}
-        <div className="flex items-center gap-2 lg:gap-4" data-oid="9g7jnfn">
+      <header className="h-16 bg-gradient-to-r from-slate-900/95 to-slate-800/95 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-6">
+        {/* Left Section */}
+        <div className="flex items-center gap-4">
+          {/* Mobile Menu Toggle */}
           <button
             onClick={onToggleSidebar}
             className="p-2 hover:bg-white/10 rounded-lg transition-colors lg:hidden"
-            data-oid="muj-i9-">
-
-            <Menu className="w-5 h-5 text-gray-400" data-oid="9wujrs6" />
+            title="Меню"
+          >
+            <Menu className="w-5 h-5 text-gray-400" />
           </button>
 
-          <div className="flex items-center gap-2 min-w-0" data-oid="9d_5n4q">
-            {currentPage === "boards" ? (
-              <>
-                <h1 className="text-lg lg:text-xl font-semibold text-white truncate" data-oid="ys5n69y">
-                  {state.selectedBoard?.name || "Выберите доску"}
-                </h1>
-                {(currentProject || state.selectedProject) &&
-                <div
-                  className="hidden sm:flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full flex-shrink-0"
-                  data-oid="4tht53h">
-
-                    <div
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: (currentProject || state.selectedProject)?.color }}
-                    data-oid="rfi5lh." />
-
-                    <span className="text-sm text-gray-300" data-oid="fmtdcgr">
-                      {(currentProject || state.selectedProject)?.name}
-                    </span>
-                  </div>
-                }
-
-                {/* Board management button - only for admins and managers */}
-                {(state.currentUser?.role === 'admin' || state.currentUser?.role === 'manager') && (
-                  <button
-                    onClick={() => setIsBoardManagerOpen(true)}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                    title="Управление досками"
-                    data-oid="p-g-_z_">
-
-                    <Settings className="w-4 h-4 text-gray-400" data-oid="_asezpr" />
-                  </button>
-                )}
-              </>
-            ) : (
-              <h1 className="text-lg lg:text-xl font-semibold text-white truncate" data-oid="ys5n69y">
-                {currentPage === "home" && "Главная"}
-                {currentPage === "calendar" && "Календарь"}
-                {currentPage === "team" && "Команда"}
-                {currentPage === "notifications" && "Уведомления"}
-                {currentPage === "settings" && "Настройки"}
-                {currentPage === "admin" && "Администрирование"}
-              </h1>
-            )}
-          </div>
-        </div>
-
-        {/* Center section - Filters (only on boards page) */}
-        {currentPage === "boards" && (
-          <div className="hidden md:flex items-center gap-2" data-oid="thb3i:p">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-lg transition-colors glass hover-lift",
-                showFilters ?
-                "bg-primary-500/20 text-primary-300" :
-                "text-gray-400 hover:text-white"
-              )}
-              data-oid="adwyo8.">
-
-              <Filter className="w-4 h-4" data-oid="48n0x64" />
-              <span className="text-sm" data-oid="1-ph:mq">
-                Фильтры
-              </span>
-            </button>
-
-            <button
-              onClick={handleSort}
-              className="hover-lift glass flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-              data-oid="tz0xdvx">
-
-              <SortAsc className="w-4 h-4" data-oid="rj7cq3d" />
-              <span className="text-sm" data-oid="t3b-ifa">
-                {state.sortOrder === "asc" ? "↑" : "↓"} {state.sortBy}
-              </span>
-            </button>
-
-            <button
-              onClick={() => onNavigate?.("team")}
-              className="hover-lift glass flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-              data-oid="oqoonsc">
-
-              <Users className="w-4 h-4" data-oid="0n.wuwq" />
-              <span className="text-sm" data-oid="..yd9jl">
-                Команда ({((currentProject || state.selectedProject)?.members?.length) || 0})
-              </span>
-            </button>
-
-            <button
-              onClick={() => setIsTaskActionsModalOpen(true)}
-              className="hover-lift glass flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-              data-oid="oqoonsc">
-
-              <MoreHorizontal className="w-4 h-4" data-oid="0n.wuwq" />
-              <span className="text-sm" data-oid="..yd9jl">
-                Действия
-              </span>
-            </button>
-          </div>
-        )}
-
-        {/* Right section */}
-        <div className="flex items-center gap-2" data-oid="tz0xdvx">
-          <button
-            onClick={() => setIsCreateTaskModalOpen(true)}
-            className="hover-lift glass flex items-center gap-2 px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
-            data-oid="tz0xdvx">
-
-            <Plus className="w-4 h-4" data-oid="rj7cq3d" />
-            <span className="hidden sm:inline text-sm" data-oid="t3b-ifa">
-              Задача
-            </span>
-          </button>
-
-          <button
-            onClick={() => onNavigate?.("notifications")}
-            className="relative p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-300 hover-lift"
-            title="Уведомления"
-            data-oid="bbc4jzh">
-
-            <Bell className="w-5 h-5 transition-transform duration-200" data-oid="dp.gfmc" />
-            {unreadNotifications > 0 &&
-            <div
-              className="absolute -top-1 -right-1 w-5 h-5 bg-primary-700 rounded-full flex items-center justify-center text-xs text-white badge animate-pulse"
-              data-oid="-xgw:5n">
-
-                {unreadNotifications > 9 ? "9+" : unreadNotifications}
-              </div>
-            }
-          </button>
-
-          <button
-            onClick={() => onNavigate?.("calendar")}
-            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-300 hover-lift"
-            title="Календарь"
-            data-oid="rseo0ey">
-
-            <Calendar className="w-5 h-5 transition-transform duration-200" data-oid="xscfnf6" />
-          </button>
-
-          <div className="w-px h-6 bg-white/10 mx-2" data-oid="mmpjrmi"></div>
-
-          <div className="flex items-center gap-2">
-            {state.settings?.showAvatars && (
-              state.currentUser?.avatar ?
-              <button
-                onClick={() => setIsUserProfileOpen(true)}
-                className="hover-scale hover:ring-2 hover:ring-primary-500/50 rounded-full transition-all"
-                title={`Профиль: ${state.currentUser.name}`}>
-                <img
-                  src={state.currentUser.avatar}
-                  alt={state.currentUser.name}
-                  className="w-8 h-8 rounded-full" />
-              </button> :
-              <button
-                onClick={() => setIsUserProfileOpen(true)}
-                className="hover-scale w-8 h-8 bg-primary-500 hover:bg-primary-600 rounded-full flex items-center justify-center text-sm text-white transition-all hover:ring-2 hover:ring-primary-500/50"
-                title={`Профиль: ${state.currentUser?.name || "Пользователь"}`}>
-                {state.currentUser ? getInitials(state.currentUser.name) : "?"}
-              </button>
-            )}
+          {/* Page Title */}
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-semibold text-white">
+              {getPageTitle()}
+            </h1>
             
+            {/* Project Indicator */}
+            {currentProject && currentPage === "boards" && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg">
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: currentProject.color || '#6366f1' }}
+                />
+                <span className="text-sm text-gray-300">
+                  {state.selectedBoard?.name || "Выберите доску"}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Center Section - Search */}
+        <div className="flex-1 max-w-md mx-6">
+          {showSearch ? (
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Поиск задач..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 pl-10 text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500/50"
+                autoFocus
+                onBlur={() => {
+                  if (!searchTerm) setShowSearch(false);
+                }}
+              />
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+              {searchTerm && (
+                <button
+                  onClick={() => {
+                    setSearchTerm("");
+                    setShowSearch(false);
+                  }}
+                  className="absolute right-2 top-2 p-1 hover:bg-white/10 rounded transition-colors"
+                >
+                  <X className="w-4 h-4 text-gray-400" />
+                </button>
+              )}
+            </div>
+          ) : (
             <button
-              onClick={handleLogout}
-              className="hover-lift p-2 hover:bg-white/10 rounded-lg transition-all duration-300"
-              title="Выйти"
-              data-oid="logout-btn">
-              <LogOut className="w-5 h-5 text-gray-400 transition-transform duration-200" data-oid="logout-icon" />
+              onClick={() => setShowSearch(true)}
+              className="flex items-center gap-2 w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <Search className="w-4 h-4" />
+              <span className="text-sm">Поиск задач...</span>
+            </button>
+          )}
+        </div>
+
+        {/* Right Section */}
+        <div className="flex items-center gap-2">
+          {/* Action Buttons - only show on boards page */}
+          {currentPage === "boards" && (
+            <>
+              {/* Create Task */}
+              <button
+                onClick={() => setIsCreateTaskModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors"
+                title="Создать задачу"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Задача</span>
+              </button>
+
+              {/* Filters */}
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  showFilters
+                    ? "bg-purple-500/20 text-purple-400"
+                    : "hover:bg-white/10 text-gray-400 hover:text-white"
+                )}
+                title="Фильтры"
+              >
+                <Filter className="w-5 h-5" />
+              </button>
+
+              {/* Sort */}
+              <button
+                onClick={handleSort}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+                title="Сортировка"
+              >
+                <SortAsc className="w-5 h-5" />
+              </button>
+
+              {/* Board Manager */}
+              <button
+                onClick={() => setIsBoardManagerOpen(true)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+                title="Управление досками"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+            </>
+          )}
+
+          {/* Notifications */}
+          <button
+            onClick={() => onNavigate("notifications")}
+            className="relative p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+            title="Уведомления"
+          >
+            <Bell className="w-5 h-5" />
+            {notificationCount > 0 && (
+              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                {notificationCount > 99 ? "99+" : notificationCount}
+              </div>
+            )}
+          </button>
+
+          {/* User Profile */}
+          <div className="relative">
+            <button
+              onClick={() => setIsUserProfileOpen(!isUserProfileOpen)}
+              className="flex items-center gap-2 p-2 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                <span className="text-xs font-medium text-white">
+                  {getInitials(state.currentUser?.name || "User")}
+                </span>
+              </div>
+              <div className="hidden sm:block text-left">
+                <div className="text-sm font-medium text-white">
+                  {state.currentUser?.name}
+                </div>
+                <div className="text-xs text-gray-400">
+                  {state.currentUser?.role === "admin" ? "Администратор" : "Пользователь"}
+                </div>
+              </div>
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            </button>
+
+            {/* User Dropdown */}
+            {isUserProfileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-64 bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl z-50">
+                <div className="p-4 border-b border-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                      <span className="text-lg font-medium text-white">
+                        {getInitials(state.currentUser?.name || "User")}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="font-medium text-white">
+                        {state.currentUser?.name}
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        {state.currentUser?.email}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-2">
+                  <button
+                    onClick={() => {
+                      onNavigate("settings");
+                      setIsUserProfileOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>Настройки</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setIsUserProfileOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Выйти</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Filters Panel */}
+      {showFilters && currentPage === "boards" && (
+        <div className="bg-slate-800/95 backdrop-blur-xl border-b border-white/10 p-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-400">Исполнитель:</label>
+              <CustomSelect
+                value={state.filters.assignee}
+                onChange={(value) => handleFilterChange("assignee", value)}
+                options={[
+                  { value: "", label: "Все" },
+                  ...state.users.map(user => ({
+                    value: user.id,
+                    label: user.name
+                  }))
+                ]}
+                className="min-w-[120px]"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-400">Приоритет:</label>
+              <CustomSelect
+                value={state.filters.priority}
+                onChange={(value) => handleFilterChange("priority", value)}
+                options={[
+                  { value: "", label: "Все" },
+                  { value: "low", label: "Низкий" },
+                  { value: "medium", label: "Средний" },
+                  { value: "high", label: "Высокий" },
+                  { value: "urgent", label: "Критический" }
+                ]}
+                className="min-w-[120px]"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-400">Статус:</label>
+              <CustomSelect
+                value={state.filters.status}
+                onChange={(value) => handleFilterChange("status", value)}
+                options={[
+                  { value: "", label: "Все" },
+                  { value: "backlog", label: "Беклог" },
+                  { value: "todo", label: "К выполнению" },
+                  { value: "in_progress", label: "В работе" },
+                  { value: "review", label: "На проверке" },
+                  { value: "done", label: "Выполнено" }
+                ]}
+                className="min-w-[120px]"
+              />
+            </div>
+
+            <button
+              onClick={clearFilters}
+              className="px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            >
+              Очистить
             </button>
           </div>
         </div>
-      </div>
-
-      {/* Filters dropdown - positioned relative to the page, not the topbar */}
-      {showFilters &&
-      <div
-        className="fixed inset-0 z-40"
-        onClick={() => setShowFilters(false)}
-        data-oid="qkr3p:v">
-
-          <div
-            className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-gray-800/95 backdrop-blur-xl border border-white/10 rounded-xl p-6 min-w-96 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-            data-oid="328">
-
-            <div className="flex items-center justify-between mb-4" data-oid="filters-header">
-              <h3 className="text-lg font-semibold text-white" data-oid="filters-title">
-                Фильтры задач
-              </h3>
-              <button
-                onClick={() => setShowFilters(false)}
-                className="p-1 hover:bg-white/10 rounded-lg transition-colors"
-                data-oid="close-filters">
-                <X className="w-5 h-5 text-gray-400" data-oid="close-icon" />
-              </button>
-            </div>
-
-            <div className="space-y-4" data-oid="filters-content">
-              <div data-oid="assignee-filter">
-                <label className="block text-sm font-medium text-gray-300 mb-2" data-oid="assignee-label">
-                  Исполнитель
-                </label>
-                <CustomSelect
-                  value={state.filters.assignee || ""}
-                  onChange={(value) => handleFilterChange("assignee", value)}
-                  options={[
-                    { value: "", label: "Все исполнители" },
-                    ...((currentProject || state.selectedProject)?.members?.map(member => ({
-                      value: member.userId,
-                      label: member.userId // TODO: Need to get user name from users array
-                    })) || [])
-                  ]}
-                  data-oid="assignee-select" />
-              </div>
-
-              <div data-oid="priority-filter">
-                <label className="block text-sm font-medium text-gray-300 mb-2" data-oid="priority-label">
-                  Приоритет
-                </label>
-                <CustomSelect
-                  value={state.filters.priority || ""}
-                  onChange={(value) => handleFilterChange("priority", value)}
-                  options={[
-                    { value: "", label: "Все приоритеты" },
-                    { value: "low", label: "Низкий", color: "#a5b4fc" },
-                    { value: "medium", label: "Средний", color: "#818cf8" },
-                    { value: "high", label: "Высокий", color: "#6366f1" },
-                    { value: "urgent", label: "Срочный", color: "#4f46e5" }
-                  ]}
-                  data-oid="priority-select" />
-              </div>
-
-              <div className="flex gap-2 pt-4" data-oid="filter-actions">
-                <button
-                  onClick={clearFilters}
-                  className="flex-1 px-4 py-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                  data-oid="clear-filters">
-                  Очистить
-                </button>
-                <button
-                  onClick={() => setShowFilters(false)}
-                  className="flex-1 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
-                  data-oid="apply-filters">
-                  Применить
-                </button>
-              </div>
-
-              {hasActiveFilters() && (
-                <div className="text-sm text-gray-400 text-center" data-oid="filter-info">
-                  Найдено задач: {getFilteredTasksCount()}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      }
+      )}
 
       {/* Create Task Modal */}
-      <CreateTaskModal
-        isOpen={isCreateTaskModalOpen}
-        onClose={() => setIsCreateTaskModalOpen(false)}
-        onSubmit={handleCreateTask}
-        project={currentProject || state.selectedProject}
-        columnId={(currentProject || state.selectedProject)?.columns?.[0]?.id || ''}
-        projectUsers={(currentProject || state.selectedProject)?.users || []}
-      />
+      {currentProject && (
+        <CreateTaskModal
+          isOpen={isCreateTaskModalOpen}
+          onClose={() => setIsCreateTaskModalOpen(false)}
+          onSubmit={async (data: any) => { await handleCreateTask(data); }}
+          project={currentProject}
+          columnId=""
+          projectUsers={state.users.filter(user => user.isApproved)}
+        />
+      )}
 
       {/* Board Manager Modal */}
       <BoardManager
         isOpen={isBoardManagerOpen}
         onClose={() => setIsBoardManagerOpen(false)}
-        data-oid="mtiij.f" />
+      />
 
-      {/* Task Actions Modal */}
-      <TaskActionsModal
-        isOpen={isTaskActionsModalOpen}
-        onClose={() => setIsTaskActionsModalOpen(false)} />
+      {/* Confirmation Component */}
+      <ConfirmationComponent />
 
-      {/* User Profile Modal */}
-      <UserProfile
-        isOpen={isUserProfileOpen}
-        onClose={() => setIsUserProfileOpen(false)} />
-
-      {/* Confirmation Modal */}
-      {ConfirmationComponent()}
-
+      {/* Click outside to close dropdowns */}
+      {isUserProfileOpen && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setIsUserProfileOpen(false)}
+        />
+      )}
     </>
   );
 }
