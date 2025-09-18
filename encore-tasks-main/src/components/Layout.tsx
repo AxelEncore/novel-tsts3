@@ -24,6 +24,10 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const { state, dispatch, loadProjects, loadUsers } = useApp();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [currentPage, setCurrentPage] = useState("boards");
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(
+    !state.isAuthenticated
+  );
   
   // Debug logging
   console.log('🔍 Layout: Current state:', {
@@ -31,31 +35,6 @@ export function Layout({ children }: LayoutProps) {
     isLoading: state.isLoading,
     currentUser: state.currentUser
   });
-
-  // Show loading screen during initialization
-  if (state.isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 to-gray-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-          <p className="text-gray-300">Загрузка...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show auth modal if not authenticated and not loading
-  if (!state.isAuthenticated && !state.isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 to-gray-800">
-        <AuthModal isOpen={true} onClose={() => {}} />
-      </div>
-    );
-  }
-  const [currentPage, setCurrentPage] = useState("boards");
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(
-    !state.isAuthenticated
-  );
 
   // Get the current active project
   const currentProject = state.selectedProject || (state.projects && state.projects.length > 0 ? state.projects[0] : undefined);
@@ -136,12 +115,11 @@ export function Layout({ children }: LayoutProps) {
   }
 
   // Show auth modal if not authenticated
-  if (isAuthModalOpen) {
+  if (!state.isAuthenticated && !state.isLoading) {
     return (
-      <AuthModal
-        isOpen={true}
-        onClose={() => setIsAuthModalOpen(false)}
-        data-oid="auth-modal" />
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 to-gray-800">
+        <AuthModal isOpen={true} onClose={() => {}} />
+      </div>
     );
   }
 
@@ -250,6 +228,6 @@ export function Layout({ children }: LayoutProps) {
         <div className="bg-effect-1" data-oid="l.60xyu"></div>
         <div className="bg-effect-2" data-oid="x0h_vrf"></div>
       </div>
-    </div>);
-
+    </div>
+  );
 }
