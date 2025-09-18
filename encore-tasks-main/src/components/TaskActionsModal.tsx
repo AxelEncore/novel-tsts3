@@ -24,7 +24,7 @@ import { CustomSelect } from "./CustomSelect";
 interface TaskActionsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  taskId$1: string;
+  taskId: string;
 }
 
 export function TaskActionsModal({ isOpen, onClose, taskId }: TaskActionsModalProps) {

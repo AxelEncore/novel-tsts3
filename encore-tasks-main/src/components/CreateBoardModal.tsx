@@ -73,69 +73,89 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
+  // Сброс формы
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      color: BOARD_COLORS[0],
+      isPrivate: false,
+    });
+    setErrors({});
+  };
+
+  // Закрытие модального окна
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
   // Обработка отправки формы
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
 
+    setLoading(true);
+
     try {
-      setLoading(true);
-      
-      // Создание доски
-      const boardResponse = await projectService.createBoard({
-        projectId,
-        name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
-        color: formData.color,
-        isPrivate: formData.isPrivate,
+      // Создание доски через API
+      const response = await fetch('/api/boards', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          color: formData.color,
+          is_private: formData.isPrivate,
+          project_id: projectId,
+        }),
       });
 
-      if (!boardResponse.success || !boardResponse.data) {
-        throw new Error(boardResponse.error || 'Ошибка при создании доски');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Ошибка при создании доски');
       }
 
-      const newBoard = boardResponse.data;
+      const { board } = await response.json();
 
       // Создание колонок по умолчанию
-      const columnPromises = DEFAULT_COLUMNS.map((column, index) =>
-        projectService.createColumn({
-          boardId: newBoard.id,
-          name: column.name,
-          type: column.type,
-          position: index,
-        })
-      );
+      const columnPromises = DEFAULT_COLUMNS.map(async (columnData, index) => {
+        const columnResponse = await fetch('/api/columns', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: columnData.name,
+            board_id: board.id,
+            position: index,
+            type: columnData.type,
+          }),
+        });
 
-      const columnResults = await Promise.all(columnPromises);
-      
-      // Проверка успешности создания колонок
-      const failedColumns = columnResults.filter(result => !result.success);
-      if (failedColumns.length > 0) {
-        console.warn('Некоторые колонки не были созданы:', failedColumns);
-        toast.warning('Доска создана, но некоторые колонки не удалось создать');
-      }
+        if (!columnResponse.ok) {
+          throw new Error(`Ошибка при создании колонки: ${columnData.name}`);
+        }
 
-      // Добавление созданных колонок к доске
-      const createdColumns = columnResults
-        .filter(result => result.success && result.data)
-        .map(result => result.data!);
+        return columnResponse.json();
+      });
 
-      const boardWithColumns = {
-        ...newBoard,
-        columns: createdColumns,
-      };
+      await Promise.all(columnPromises);
 
-      onBoardCreated(boardWithColumns);
-      handleClose();
       toast.success('Доска успешно создана');
+      onBoardCreated(board);
+      handleClose();
+
     } catch (error) {
-      console.error('Ошибка создания доски:', error);
+      console.error('Error creating board:', error);
       toast.error(
         error instanceof Error 
-          $1 error.message 
+          ? error.message 
           : 'Ошибка при создании доски'
       );
     } finally {
@@ -143,183 +163,165 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
     }
   };
 
-  // Закрытие модального окна
-  const handleClose = () => {
-    if (!loading) {
-      setFormData({
-        name: '',
-        description: '',
-        color: BOARD_COLORS[0],
-        isPrivate: false,
-      });
-      setErrors({});
-      onClose();
-    }
-  };
-
-  // Обработка изменений в форме
-  const handleInputChange = (field: keyof BoardFormData, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // Очистка ошибки при изменении поля
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
-    }
-  };
-
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        {/* Заголовок */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Создать новую доску
-          </h2>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-white/10">
+          <h2 className="text-xl font-semibold text-white">Создать доску</h2>
           <button
             onClick={handleClose}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             disabled={loading}
-            className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
           >
-            <X size={24} />
+            <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
-        {/* Форма */}
+        {/* Content */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Название */}
+          {/* Название доски */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="board-name" className="block text-sm font-medium text-white mb-2">
               Название доски *
             </label>
             <input
+              id="board-name"
               type="text"
               value={formData.name}
-              onChange={(e) => handleInputChange('name', e.target.value)}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Введите название доски"
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.name $1 'border-red-300' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/5 text-white placeholder-gray-400 ${
+                errors.name ? 'border-red-300' : 'border-gray-600'
               }`}
               disabled={loading}
-              maxLength={100}
             />
             {errors.name && (
-              <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+              <p className="mt-1 text-sm text-red-400">{errors.name}</p>
             )}
           </div>
 
           {/* Описание */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Описание
+            <label htmlFor="board-description" className="block text-sm font-medium text-white mb-2">
+              Описание (необязательно)
             </label>
             <textarea
+              id="board-description"
               value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Краткое описание доски (необязательно)"
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Введите описание доски"
               rows={3}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
-                errors.description $1 'border-red-300' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white/5 text-white placeholder-gray-400 ${
+                errors.description ? 'border-red-300' : 'border-gray-600'
               }`}
               disabled={loading}
-              maxLength={500}
             />
             {errors.description && (
-              <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+              <p className="mt-1 text-sm text-red-400">{errors.description}</p>
             )}
-            <p className="text-gray-500 text-xs mt-1">
-              {formData.description.length}/500 символов
-            </p>
           </div>
 
-          {/* Цвет */}
+          {/* Цвет доски */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-white mb-2">
               Цвет доски
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-5 gap-2">
               {BOARD_COLORS.map((color) => (
                 <button
                   key={color}
                   type="button"
-                  onClick={() => handleInputChange('color', color)}
-                  disabled={loading}
+                  onClick={() => setFormData({ ...formData, color })}
                   className={`w-8 h-8 rounded-full border-2 transition-all ${
                     formData.color === color
-                      $1 'border-gray-800 scale-110'
-                      : 'border-gray-300 hover:border-gray-400'
+                      ? 'border-white scale-110'
+                      : 'border-gray-500 hover:border-gray-400'
                   }`}
                   style={{ backgroundColor: color }}
-                  title={`Выбрать цвет ${color}`}
+                  disabled={loading}
+                  aria-label={`Выбрать цвет ${color}`}
                 />
               ))}
             </div>
           </div>
 
           {/* Приватность */}
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="isPrivate"
-              checked={formData.isPrivate}
-              onChange={(e) => handleInputChange('isPrivate', e.target.checked)}
-              disabled={loading}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label htmlFor="isPrivate" className="text-sm text-gray-700">
-              Приватная доска (доступна только участникам проекта)
+          <div>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.isPrivate}
+                onChange={(e) => setFormData({ ...formData, isPrivate: e.target.checked })}
+                className="rounded border-gray-600 bg-white/5 text-blue-600 focus:ring-blue-500"
+                disabled={loading}
+              />
+              <span className="text-sm text-white">Приватная доска</span>
             </label>
+            <p className="mt-1 text-xs text-gray-400">
+              Приватные доски видны только участникам проекта
+            </p>
           </div>
 
           {/* Предварительный просмотр */}
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-sm text-gray-600 mb-2">Предварительный просмотр:</p>
-            <div className="flex items-center space-x-2">
+          <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
+            <h3 className="text-sm font-medium text-white mb-2">Предварительный просмотр</h3>
+            <div className="flex items-center space-x-3">
               <div
-                className="w-4 h-4 rounded-full"
+                className="w-4 h-4 rounded"
                 style={{ backgroundColor: formData.color }}
-              ></div>
-              <span className="font-medium text-gray-900">
-                {formData.name || 'Название доски'}
-              </span>
+              />
+              <div>
+                <p className="text-white font-medium">
+                  {formData.name || 'Название доски'}
+                </p>
+                {formData.description && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    {formData.description}
+                  </p>
+                )}
+              </div>
+              {formData.isPrivate && (
+                <span className="text-xs px-2 py-1 bg-gray-700 text-gray-300 rounded">
+                  Приватная
+                </span>
+              )}
             </div>
-            {formData.description && (
-              <p className="text-sm text-gray-600 mt-1 ml-6">
-                {formData.description}
-              </p>
-            )}
+          </div>
+
+          {/* Кнопки */}
+          <div className="flex justify-end space-x-3 pt-4 border-t border-white/10">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+              disabled={loading}
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !formData.name.trim()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Создание...</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  <span>Создать доску</span>
+                </>
+              )}
+            </button>
           </div>
         </form>
-
-        {/* Кнопки действий */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={loading}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-          >
-            Отмена
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={loading || !formData.name.trim()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
-          >
-            {loading $1 (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                <span>Создание...</span>
-              </>
-            ) : (
-              <>
-                <Plus size={16} />
-                <span>Создать доску</span>
-              </>
-            )}
-          </button>
-        </div>
       </div>
     </div>
   );

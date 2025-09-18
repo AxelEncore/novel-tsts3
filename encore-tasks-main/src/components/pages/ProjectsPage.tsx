@@ -4,7 +4,7 @@ import React from "react";
 import { ProjectList } from "../../refactored/presentation/components/projects/ProjectList";
 
 interface ProjectsPageProps {
-  onNavigate$1: (page: string) => void;
+  onNavigate: (page: string) => void;
 }
 
 export function ProjectsPage({ onNavigate }: ProjectsPageProps) {
