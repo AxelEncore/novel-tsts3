@@ -7,7 +7,7 @@ import { Users, Check, X, Clock, Mail, Calendar, Shield, UserPlus, ArrowLeft, Pl
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 
 interface AdminPanelProps {
-  onNavigate$1: (page: string) => void;
+  onNavigate: (page: string) => void;
 }
 
 export function AdminPanel({ onNavigate }: AdminPanelProps) {
@@ -24,7 +24,7 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
 
   const handleApproveUser = async (userId: string) => {
     try {
-      const success = await updateUser(userId, { status: 'approved' });
+      const success = await updateUser(userId, { role: user.role, status: 'approved' });
       if (success) {
         dispatch({ type: 'APPROVE_USER', payload: userId });
       } else {
@@ -66,7 +66,7 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
 
   const handlePromoteToManager = async (userId: string) => {
     try {
-      const success = await updateUser(userId, { role: 'manager' });
+      const success = await updateUser(userId, { role: 'manager', status: user.isApproved ? 'approved' : 'pending' });
       if (!success) {
         console.error('Ошибка назначения менеджера');
       }
@@ -77,7 +77,7 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
 
   const handleDemoteFromManager = async (userId: string) => {
     try {
-      const success = await updateUser(userId, { role: 'user' });
+      const success = await updateUser(userId, { role: 'user', status: user.isApproved ? 'approved' : 'pending' });
       if (!success) {
         console.error('Ошибка снятия роли администратора');
       }
