@@ -54,7 +54,7 @@ const getIconComponent = (iconName: string) => {
 };
 
 export function Sidebar({ isCollapsed, onToggle, onNavigate, currentPage }: SidebarProps) {
-  const { state, dispatch, loadBoards } = useApp();
+  const { state, dispatch } = useApp();
   const { ConfirmationComponent, confirm } = useConfirmation();
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
   const [projectSearchTerm, setProjectSearchTerm] = useState("");
@@ -81,19 +81,11 @@ export function Sidebar({ isCollapsed, onToggle, onNavigate, currentPage }: Side
     project.name.toLowerCase().includes(projectSearchTerm.toLowerCase())
   );
 
-  const handleProjectSelect = async (project: any) => {
+  const handleProjectSelect = (project: any) => {
     console.log('🎯 Sidebar: Selecting project:', project.name);
     dispatch({ type: "SELECT_PROJECT", payload: project });
     onNavigate("boards");
-    
-    // Автоматически загружаем доски для выбранного проекта
-    try {
-      console.log('🔄 Sidebar: Auto-loading boards for project:', project.id);
-      await loadBoards(project.id);
-      console.log('✅ Sidebar: Boards loaded successfully');
-    } catch (error) {
-      console.error('❌ Sidebar: Failed to load boards:', error);
-    }
+    // Доски будут автоматически загружены в Layout useEffect
   };
 
   const handleBoardSelect = (board: any) => {

@@ -22,7 +22,7 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { state, dispatch, loadProjects, loadUsers } = useApp();
+  const { state, dispatch, loadProjects, loadUsers, loadBoards } = useApp();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState("boards");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -74,6 +74,19 @@ export function Layout({ children }: LayoutProps) {
     document.documentElement.lang = language;
   }, [state.settings?.language]);
 
+  // Get the current active project (needs to be calculated before useEffect)
+  const currentProject = state.selectedProject || (state.projects.length > 0 ? state.projects[0] : undefined);
+
+  // Auto-load boards when current project changes
+  useEffect(() => {
+    if (currentProject && currentProject.id) {
+      console.log('🔄 Layout: Auto-loading boards for current project:', currentProject.name);
+      loadBoards(currentProject.id).catch(error => {
+        console.error('❌ Layout: Failed to auto-load boards:', error);
+      });
+    }
+  }, [currentProject?.id, loadBoards]);
+
   // Show authentication modal if not authenticated
   if (!state.isAuthenticated && !state.isLoading) {
     return (
@@ -123,8 +136,6 @@ export function Layout({ children }: LayoutProps) {
     );
   }
 
-  // Get the current active project
-  const currentProject = state.selectedProject || (state.projects.length > 0 ? state.projects[0] : undefined);
 
   // Render main content based on current page
   const renderPageContent = () => {

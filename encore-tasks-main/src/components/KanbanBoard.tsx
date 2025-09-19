@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, MoreHorizontal, Edit, Trash2, Users } from 'lucide-react';
 import { Board, Column, Task, User } from '@/types';
-import { projectService } from '@/services';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from 'sonner';
-import KanbanColumn from './KanbanColumn';
+import KanbanColumnDark from './KanbanColumnDark';
 import CreateTaskModal from './CreateTaskModal';
-import CreateColumnModal from './CreateColumnModal';
 
 interface KanbanBoardProps {
   board: Board;
@@ -37,10 +35,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     );
   }
   
-  const [columns, setColumns] = useState<Column[]>(board.columns || []);
+  const [columns, setColumns] = useState<Column[]>([]);
   const [loading, setLoading] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
-  const [showCreateColumn, setShowCreateColumn] = useState(false);
   const [selectedColumn, setSelectedColumn] = useState<Column | null>(null);
   const [dragState, setDragState] = useState<DragState>({
     draggedTask: null,
@@ -49,21 +46,28 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     dragOverTask: null,
   });
 
-  // Загрузка колонок с задачами
+  // Загрузка колонок для доски через API
   const loadColumns = async () => {
     try {
       setLoading(true);
-      const response = await projectService.getBoardColumns(board.id.toString(), {
-        includeTasks: true,
+      console.log('💯 KanbanBoard: Loading columns for board:', board.id);
+      
+      const response = await fetch(`/api/columns?boardId=${board.id}`, {
+        credentials: 'include'
       });
       
-      if (response.success && response.data) {
-        setColumns(response.data);
+      const data = await response.json();
+      console.log('💯 KanbanBoard: Columns API response:', data);
+      
+      if (response.ok && data.columns) {
+        setColumns(data.columns);
+        console.log('✅ KanbanBoard: Loaded', data.columns.length, 'columns');
       } else {
-        toast.error(response.error || 'Ошибка при загрузке колонок');
+        console.error('❌ KanbanBoard: Failed to load columns:', data.error);
+        toast.error(data.error || 'Ошибка при загрузке колонок');
       }
     } catch (error) {
-      console.error('Ошибка загрузки колонок:', error);
+      console.error('❌ KanbanBoard: Error loading columns:', error);
       toast.error('Ошибка при загрузке колонок доски');
     } finally {
       setLoading(false);
@@ -71,11 +75,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   useEffect(() => {
-    if (board.columns && board.columns.length > 0) {
-      setColumns(board.columns);
-    } else {
-      loadColumns();
-    }
+    loadColumns();
   }, [board.id]);
 
   // Обработка создания новой задачи
@@ -95,14 +95,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   };
 
-  // Обработка создания новой колонки
-  const handleColumnCreated = (newColumn: Column) => {
-    setColumns(prev => [...prev, newColumn]);
-    
-    if (onColumnUpdate) {
-      onColumnUpdate();
-    }
-  };
 
   // Обработка обновления задачи
   const handleTaskUpdated = (updatedTask: Task) => {
@@ -130,25 +122,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   };
 
-  // Обработка обновления колонки
-  const handleColumnUpdated = (updatedColumn: Column) => {
-    setColumns(prev => prev.map(col => 
-      col.id === updatedColumn.id ? updatedColumn : col
-    ));
-    
-    if (onColumnUpdate) {
-      onColumnUpdate();
-    }
-  };
-
-  // Обработка удаления колонки
-  const handleColumnDeleted = (columnId: number) => {
-    setColumns(prev => prev.filter(col => col.id !== columnId));
-    
-    if (onColumnUpdate) {
-      onColumnUpdate();
-    }
-  };
 
   // Drag and Drop handlers
   const handleDragStart = (
@@ -254,21 +227,16 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           )}
         </div>
         
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={() => setShowCreateColumn(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-          >
-            <Plus size={20} />
-            <span>Добавить колонку</span>
-          </button>
+        {/* Колонки создаются автоматически при создании доски */}
+        <div className="text-gray-400 text-sm">
+          Колонки созданы автоматически
         </div>
       </div>
 
       {/* Columns */}
       <div className="flex space-x-4 overflow-x-auto pb-4 h-full">
         {columns.map((column) => (
-          <KanbanColumn
+          <KanbanColumnDark
             key={column.id}
             column={column}
             tasks={column.tasks || []}
@@ -276,8 +244,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
             onTaskCreate={() => handleCreateTask(column)}
             onTaskUpdate={handleTaskUpdated}
             onTaskDelete={handleTaskDeleted}
-            onColumnUpdate={handleColumnUpdated}
-            onColumnDelete={handleColumnDeleted}
             onDragStart={(e, type, item) => handleDragStart(e, type, item)}
             onDragOver={(e) => handleDragOver(e, column.id.toString())}
             onDrop={(e) => handleDrop(e, column.id.toString())}
@@ -286,16 +252,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           />
         ))}
         
-        {/* Add column placeholder */}
-        {columns.length === 0 && (
-          <div className="flex items-center justify-center w-80 h-96 border-2 border-dashed border-gray-600 rounded-lg">
-            <button
-              onClick={() => setShowCreateColumn(true)}
-              className="flex flex-col items-center space-y-2 text-gray-400 hover:text-white transition-colors"
-            >
-              <Plus size={32} />
-              <span>Создать первую колонку</span>
-            </button>
+        {/* Если нет колонок, отображаем сообщение */}
+        {columns.length === 0 && !loading && (
+          <div className="flex items-center justify-center w-full h-96 text-gray-400">
+            <div className="text-center">
+              <p className="text-lg mb-2">Колонки не найдены</p>
+              <p className="text-sm">Колонки должны были создаться автоматически</p>
+            </div>
           </div>
         )}
       </div>
@@ -315,14 +278,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         />
       )}
 
-      {showCreateColumn && (
-        <CreateColumnModal
-          isOpen={showCreateColumn}
-          onClose={() => setShowCreateColumn(false)}
-          onColumnCreated={handleColumnCreated}
-          boardId={board.id}
-        />
-      )}
     </div>
   );
 };

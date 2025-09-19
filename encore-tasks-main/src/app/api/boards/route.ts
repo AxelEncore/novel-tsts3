@@ -195,12 +195,13 @@ export async function POST(request: NextRequest) {
       // Создаем доску
       const newBoard = await databaseAdapter.createBoard(boardDataWithCreator);
 
-      // Создаем колонки по умолчанию
+      // Создаем колонки по умолчанию с цветами для темной темы
       const defaultColumns = [
-        { name: 'К выполнению', color: '#EF4444', position: 0 },
-        { name: 'В работе', color: '#F59E0B', position: 1 },
-        { name: 'На проверке', color: '#3B82F6', position: 2 },
-        { name: 'Выполнено', color: '#10B981', position: 3 }
+        { name: 'На выполнение', color: '#6B7280', position: 0 }, // серый нейтральный
+        { name: 'В процессе', color: '#3B82F6', position: 1 }, // синий
+        { name: 'На проверке', color: '#8B5CF6', position: 2 }, // фиолетовый
+        { name: 'Выполнено', color: '#10B981', position: 3 }, // зеленый
+        { name: 'Отложено', color: '#F59E0B', position: 4 } // оранжевый
       ];
 
       // Создаем колонки
