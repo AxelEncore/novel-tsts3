@@ -491,7 +491,7 @@ export class PostgreSQLAdapter {
 
   async getTaskById(id: string): Promise<any> {
     const query = `
-      SELECT t.*, u.name as assignee_name, c.name as column_name
+      SELECT t.*, u.name as assignee_name, c.title as column_name
       FROM tasks t
       LEFT JOIN users u ON t.assignee_id = u.id
       LEFT JOIN columns c ON t.column_id = c.id
@@ -503,7 +503,7 @@ export class PostgreSQLAdapter {
 
   async getProjectTasks(projectId: string): Promise<any[]> {
     const query = `
-      SELECT t.*, u.name as assignee_name, c.name as column_name
+      SELECT t.*, u.name as assignee_name, c.title as column_name
       FROM tasks t
       LEFT JOIN users u ON t.assignee_id = u.id
       LEFT JOIN columns c ON t.column_id = c.id
@@ -546,7 +546,7 @@ export class PostgreSQLAdapter {
 
   async getBoardTasks(boardId: string): Promise<any[]> {
     const query = `
-      SELECT t.*, u.name as assignee_name, c.name as column_name
+      SELECT t.*, u.name as assignee_name, c.title as column_name
       FROM tasks t
       LEFT JOIN users u ON t.assignee_id = u.id
       LEFT JOIN columns c ON t.column_id = c.id
@@ -564,9 +564,24 @@ export class PostgreSQLAdapter {
     const values = [];
     let paramIndex = 1;
 
+    // Map JavaScript camelCase to database snake_case
+    const fieldMapping: { [key: string]: string } = {
+      columnId: 'column_id',
+      dueDate: 'due_date',
+      assigneeId: 'assignee_id',
+      projectId: 'project_id',
+      boardId: 'board_id',
+      estimatedHours: 'estimated_hours',
+      actualHours: 'actual_hours',
+      parentTaskId: 'parent_task_id',
+      reporterId: 'reporter_id',
+      createdBy: 'created_by'
+    };
+
     for (const [key, value] of Object.entries(updates)) {
       if (key !== 'id') {
-        fields.push(`${key} = $${paramIndex}`);
+        const dbField = fieldMapping[key] || key;
+        fields.push(`${dbField} = $${paramIndex}`);
         values.push(value);
         paramIndex++;
       }

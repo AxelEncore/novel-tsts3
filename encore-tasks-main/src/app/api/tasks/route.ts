@@ -354,8 +354,8 @@ export async function POST(request: NextRequest) {
       const taskResult = await databaseAdapter.query(
         `INSERT INTO tasks (
           id, title, description, column_id, project_id, board_id, 
-          priority, deadline, estimated_hours, position, status, reporter_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          priority, due_date, position, status, reporter_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           taskId,
           taskData.title,
@@ -364,8 +364,7 @@ export async function POST(request: NextRequest) {
           project_id,
           board_id,
           taskData.priority,
-          taskData.deadline ? new Date(taskData.deadline) : null,
-          taskData.estimated_hours || null,
+          taskData.due_date ? new Date(taskData.due_date) : null,
           nextPosition,
           'todo',
           authResult.user.userId
@@ -411,11 +410,10 @@ export async function POST(request: NextRequest) {
           t.board_id,
           t.priority,
           t.position,
-          t.deadline,
-          t.estimated_hours,
+          t.due_date,
           t.created_at,
           t.updated_at,
-          c.name as column_name
+          c.title as column_name
         FROM tasks t
         LEFT JOIN columns c ON t.column_id = c.id
         WHERE t.id = $1`,
@@ -433,7 +431,7 @@ export async function POST(request: NextRequest) {
       
       // Получаем дополнительную информацию отдельными запросами
       const columnResult = await databaseAdapter.query(
-        'SELECT name FROM columns WHERE id = $1',
+        'SELECT title FROM columns WHERE id = $1',
         [task.column_id]
       );
       const columnRows = Array.isArray(columnResult) ? columnResult : (columnResult.rows || []);
@@ -468,7 +466,7 @@ export async function POST(request: NextRequest) {
         project_id: task.project_id,
         priority: task.priority,
         status: 'todo', // default status
-        deadline: task.deadline,
+        due_date: task.due_date,
         estimated_hours: task.estimated_hours,
         actual_hours: null,
         parent_task_id: null,

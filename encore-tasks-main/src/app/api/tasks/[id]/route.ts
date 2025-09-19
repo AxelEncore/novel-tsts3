@@ -170,6 +170,15 @@ export async function PATCH(
   }
 }
 
+// PUT /api/tasks/[id] - Обновление задачи (альтернативный метод)
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  // Используем ту же логику что и в PATCH
+  return PATCH(request, { params });
+}
+
 // DELETE /api/tasks/[id] - Удаление задачи
 export async function DELETE(
   request: NextRequest,
