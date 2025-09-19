@@ -246,7 +246,7 @@ class DatabaseAdapter {
    */
   public async query(sql: string, params?: unknown[]): Promise<unknown[]> {
     await this.ensureInitialized();
-    const result = await this.adapter.query(sql, params);
+    const result = await this.adapter.query(sql, params || []);
     return result.rows;
   }
 
