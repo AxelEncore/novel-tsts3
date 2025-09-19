@@ -80,7 +80,7 @@ export function CustomSelect({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 w-full min-w-[200px] mt-2 bg-gray-800/95 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto">
+        <div className="absolute top-full left-0 w-full min-w-[200px] mt-2 bg-gray-800/95 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl z-[9999] max-h-60 overflow-y-auto">
           {options.map((option, index) => (
             <button
               key={`${option.value}-${index}`}

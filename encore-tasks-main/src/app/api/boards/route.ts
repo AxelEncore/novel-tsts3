@@ -196,12 +196,13 @@ export async function POST(request: NextRequest) {
       const newBoard = await databaseAdapter.createBoard(boardDataWithCreator);
 
       // Создаем колонки по умолчанию с цветами для темной темы
+      // Названия колонок соответствуют статусам задач в фильтрации
       const defaultColumns = [
-        { name: 'На выполнение', color: '#6B7280', position: 0 }, // серый нейтральный
-        { name: 'В процессе', color: '#3B82F6', position: 1 }, // синий
-        { name: 'На проверке', color: '#8B5CF6', position: 2 }, // фиолетовый
-        { name: 'Выполнено', color: '#10B981', position: 3 }, // зеленый
-        { name: 'Отложено', color: '#F59E0B', position: 4 } // оранжевый
+        { name: 'Беклог', color: '#F59E0B', position: 0, status: 'backlog' }, // оранжевый - для идей
+        { name: 'К выполнению', color: '#6B7280', position: 1, status: 'todo' }, // серый нейтральный
+        { name: 'В работе', color: '#3B82F6', position: 2, status: 'in_progress' }, // синий
+        { name: 'На проверке', color: '#8B5CF6', position: 3, status: 'review' }, // фиолетовый
+        { name: 'Выполнено', color: '#10B981', position: 4, status: 'done' } // зеленый
       ];
 
       // Создаем колонки
@@ -211,7 +212,9 @@ export async function POST(request: NextRequest) {
           boardId: newBoard.id,
           position: col.position,
           color: col.color,
-          created_by: authResult.user.userId
+          created_by: authResult.user.userId,
+          // Добавляем status для соответствия с фильтрацией
+          status: col.status
         });
       }
 

@@ -26,6 +26,41 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 }) => {
   const { user, users } = useApp();
   
+  // Функция для соответствия колонок со статусами задач
+  const getColumnStatusMapping = (columns: Column[]) => {
+    const mapping: Record<string, string> = {};
+    columns.forEach(column => {
+      if (column.status) {
+        mapping[column.id] = column.status;
+      } else {
+        // Определяем статус по названию колонки (для обратной совместимости)
+        // Проверяем и name, и title (в БД может быть title)
+        const columnName = column.name || column.title || '';
+        if (columnName) {
+          const name = columnName.toLowerCase();
+          if (name.includes('беклог') || name.includes('backlog')) {
+            mapping[column.id] = 'backlog';
+          } else if (name.includes('выполнению') || name.includes('todo')) {
+            mapping[column.id] = 'todo';
+          } else if (name.includes('работе') || name.includes('progress')) {
+            mapping[column.id] = 'in_progress';
+          } else if (name.includes('проверк') || name.includes('review')) {
+            mapping[column.id] = 'review';
+          } else if (name.includes('выполнено') || name.includes('done')) {
+            mapping[column.id] = 'done';
+          } else {
+            // По умолчанию - todo
+            mapping[column.id] = 'todo';
+          }
+        } else {
+          // Если нет названия - устанавливаем todo по умолчанию
+          mapping[column.id] = 'todo';
+        }
+      }
+    });
+    return mapping;
+  };
+  
   // Проверка наличия доски
   if (!board) {
     return (
@@ -39,6 +74,25 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [loading, setLoading] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [selectedColumn, setSelectedColumn] = useState<Column | null>(null);
+  
+  // Получаем соответствие колонок со статусами
+  const statusMapping = getColumnStatusMapping(columns);
+  
+  // Получаем задачи для конкретной колонки
+  const getTasksForColumn = (column: Column) => {
+    const expectedStatus = statusMapping[column.id];
+    if (!column.tasks) return [];
+    
+    // Фильтруем задачи по статусу
+    return column.tasks.filter(task => {
+      // Если у задачи есть статус, сравниваем его с ожидаемым
+      if (task.status) {
+        return task.status === expectedStatus;
+      }
+      // Если нет статуса, показываем все задачи в колонке
+      return true;
+    });
+  };
   const [dragState, setDragState] = useState<DragState>({
     draggedTask: null,
     draggedColumn: null,
@@ -79,12 +133,20 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   }, [board.id]);
 
   // Обработка создания новой задачи
-  const handleTaskCreated = (newTask: Task, columnId: number) => {
+  const handleTaskCreated = (newTask: Task, columnId: string) => {
+    // Обновляем статус задачи на основе колонки
+    const column = columns.find(col => col.id === columnId);
+    const correctStatus = column ? statusMapping[column.id] : newTask.status;
+    const taskWithCorrectStatus = {
+      ...newTask,
+      status: correctStatus
+    };
+    
     setColumns(prev => prev.map(col => {
       if (col.id === columnId) {
         return {
           ...col,
-          tasks: [...(col.tasks || []), newTask]
+          tasks: [...(col.tasks || []), taskWithCorrectStatus]
         };
       }
       return col;
@@ -111,7 +173,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   // Обработка удаления задачи
-  const handleTaskDeleted = (taskId: number) => {
+  const handleTaskDeleted = (taskId: string) => {
     setColumns(prev => prev.map(col => ({
       ...col,
       tasks: (col.tasks || []).filter(task => task.id !== taskId)
@@ -161,17 +223,40 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         col.tasks?.some(task => task.id === draggedTask.id)
       );
       
-      if (sourceColumn && sourceColumn.id.toString() !== targetColumnId) {
+      if (sourceColumn && sourceColumn.id !== targetColumnId) {
         try {
+          // Получаем новый статус на основе колонки
+          const targetColumn = columns.find(col => col.id === targetColumnId);
+          const newStatus = targetColumn ? statusMapping[targetColumn.id] : draggedTask.status;
+          
           // Обновляем задачу на сервере
-          const updatedTask = {
-            ...draggedTask,
-            column_id: parseInt(targetColumnId)
+          const updateData = {
+            columnId: targetColumnId,
+            status: newStatus
           };
           
-          await projectService.updateTask(draggedTask.id, updatedTask);
+          const response = await fetch(`/api/tasks/${draggedTask.id}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(updateData)
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to update task');
+          }
+          
+          const updatedTask = await response.json();
           
           // Обновляем локальное состояние
+          const taskWithUpdatedStatus = {
+            ...draggedTask,
+            column_id: targetColumnId,
+            status: newStatus
+          };
+          
           setColumns(prev => prev.map(col => {
             if (col.id === sourceColumn.id) {
               return {
@@ -179,10 +264,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 tasks: (col.tasks || []).filter(task => task.id !== draggedTask.id)
               };
             }
-            if (col.id === parseInt(targetColumnId)) {
+            if (col.id === targetColumnId) {
               return {
                 ...col,
-                tasks: [...(col.tasks || []), updatedTask]
+                tasks: [...(col.tasks || []), taskWithUpdatedStatus]
               };
             }
             return col;
@@ -235,22 +320,25 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       {/* Columns */}
       <div className="flex space-x-4 overflow-x-auto pb-4 h-full">
-        {columns.map((column) => (
-          <KanbanColumnDark
-            key={column.id}
-            column={column}
-            tasks={column.tasks || []}
-            users={users}
-            onTaskCreate={() => handleCreateTask(column)}
-            onTaskUpdate={handleTaskUpdated}
-            onTaskDelete={handleTaskDeleted}
-            onDragStart={(e, type, item) => handleDragStart(e, type, item)}
-            onDragOver={(e) => handleDragOver(e, column.id.toString())}
-            onDrop={(e) => handleDrop(e, column.id.toString())}
-            onDragEnd={handleDragEnd}
-            isDragOver={dragState.dragOverColumn === column.id.toString()}
-          />
-        ))}
+        {columns.map((column) => {
+          const columnTasks = getTasksForColumn(column);
+          return (
+            <KanbanColumnDark
+              key={column.id}
+              column={column}
+              tasks={columnTasks}
+              users={users}
+              onTaskCreate={() => handleCreateTask(column)}
+              onTaskUpdate={handleTaskUpdated}
+              onTaskDelete={handleTaskDeleted}
+              onDragStart={(e, type, item) => handleDragStart(e, type, item)}
+              onDragOver={(e) => handleDragOver(e, column.id)}
+              onDrop={(e) => handleDrop(e, column.id)}
+              onDragEnd={handleDragEnd}
+              isDragOver={dragState.dragOverColumn === column.id}
+            />
+          );
+        })}
         
         {/* Если нет колонок, отображаем сообщение */}
         {columns.length === 0 && !loading && (

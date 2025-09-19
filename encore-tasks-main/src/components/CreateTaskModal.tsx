@@ -6,10 +6,10 @@ import { format } from 'date-fns';
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (taskData: Partial<Task>) => Promise<void>;
-  project: Project;
-  columnId: number;
-  projectUsers: User[];
+  onTaskCreated?: (task: Task, columnId: number) => void;
+  columnId: string | number;
+  boardId: string;
+  users: User[];
 }
 
 interface TaskFormData {
@@ -17,7 +17,7 @@ interface TaskFormData {
   description: string;
   priority: Task['priority'];
   dueDate: string;
-  assigneeIds: number[];
+  assigneeIds: string[];
   tags: string[];
   estimatedHours: number | null;
 }
@@ -32,10 +32,10 @@ const PRIORITY_OPTIONS = [
 const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   isOpen,
   onClose,
-  onSubmit,
-  project,
+  onTaskCreated,
   columnId,
-  projectUsers,
+  boardId,
+  users,
 }) => {
   const [formData, setFormData] = useState<TaskFormData>({
     title: '',
@@ -101,20 +101,28 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      const taskData: Partial<Task> = {
+      // Create a mock task for now - this would normally call an API
+      const newTask: Task = {
+        id: Math.random().toString(36).substr(2, 9), // temporary ID
         title: formData.title.trim(),
         description: formData.description.trim() || undefined,
         priority: formData.priority,
-        dueDate: formData.dueDate || undefined,
-        estimatedHours: formData.estimatedHours || undefined,
-        projectId: project.id,
-        columnId,
-        status: 'TODO',
-        assignees: formData.assigneeIds.map(userId => ({ userId, assignedAt: new Date().toISOString() })),
-        tags: formData.tags.length > 0 ? formData.tags : undefined,
+        status: 'todo',
+        project_id: '',
+        board_id: boardId,
+        column_id: columnId.toString(),
+        assignee_id: formData.assigneeIds.length > 0 ? formData.assigneeIds[0].toString() : undefined,
+        reporter_id: '',
+        position: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        due_date: formData.dueDate || undefined,
+        tags: (formData.tags && formData.tags.length > 0) ? formData.tags : undefined,
       };
 
-      await onSubmit(taskData);
+      if (onTaskCreated) {
+        onTaskCreated(newTask, typeof columnId === 'string' ? parseInt(columnId) : columnId);
+      }
       onClose();
     } catch (error) {
       console.error('Ошибка при создании задачи:', error);
@@ -134,19 +142,21 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
   // Добавление тега
   const handleAddTag = () => {
-    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
-      handleInputChange('tags', [...formData.tags, newTag.trim()]);
+    const currentTags = formData.tags || [];
+    if (newTag.trim() && !currentTags.includes(newTag.trim())) {
+      handleInputChange('tags', [...currentTags, newTag.trim()]);
       setNewTag('');
     }
   };
 
   // Удаление тега
   const handleRemoveTag = (tagToRemove: string) => {
-    handleInputChange('tags', formData.tags.filter(tag => tag !== tagToRemove));
+    const currentTags = formData.tags || [];
+    handleInputChange('tags', currentTags.filter(tag => tag !== tagToRemove));
   };
 
   // Переключение исполнителя
-  const toggleAssignee = (userId: number) => {
+  const toggleAssignee = (userId: string) => {
     const newAssigneeIds = formData.assigneeIds.includes(userId)
       ? formData.assigneeIds.filter(id => id !== userId)
       : [...formData.assigneeIds, userId];
@@ -281,24 +291,30 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               Исполнители
             </label>
             <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
-              {projectUsers.map(user => (
-                <label key={user.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                  <input
-                    type="checkbox"
-                    checked={formData.assigneeIds.includes(user.id)}
-                    onChange={() => toggleAssignee(user.id)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <div className="flex items-center space-x-2">
-                    <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-medium text-gray-700">
-                      {user.firstName.charAt(0)}{user.lastName.charAt(0)}
+              {(!users || users.length === 0) ? (
+                <div className="text-center py-4 text-gray-500 text-sm">
+                  Нет доступных пользователей
+                </div>
+              ) : (
+                (users || []).map(user => (
+                  <label key={user.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                    <input
+                      type="checkbox"
+                      checked={formData.assigneeIds.includes(user.id)}
+                      onChange={() => toggleAssignee(user.id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-medium text-gray-700">
+                        {user.name ? user.name.charAt(0).toUpperCase() : '?'}
+                      </div>
+                      <span className="text-sm text-gray-900">
+                        {user.name || 'Unknown User'}
+                      </span>
                     </div>
-                    <span className="text-sm text-gray-900">
-                      {user.firstName} {user.lastName}
-                    </span>
-                  </div>
-                </label>
-              ))}
+                  </label>
+                ))
+              )}
             </div>
           </div>
 
@@ -308,7 +324,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               Теги
             </label>
             <div className="flex flex-wrap gap-2 mb-2">
-              {formData.tags.map(tag => (
+              {(formData.tags || []).map(tag => (
                 <span
                   key={tag}
                   className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"

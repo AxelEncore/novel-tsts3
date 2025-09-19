@@ -98,7 +98,7 @@ export function MultiSelect({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-white/10 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-white/10 rounded-lg shadow-lg z-[9999] max-h-60 overflow-y-auto">
           {options.length === 0 ? (
             <div className="px-4 py-2 text-gray-400 text-sm">
               Нет доступных пользователей

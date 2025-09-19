@@ -112,15 +112,18 @@ export interface Board {
 
 export interface Column {
   id: string;
-  name: string;
+  name?: string; // Для обратной совместимости
+  title?: string; // Основное поле из БД
   board_id: string;
   position: number;
   color?: string;
+  status?: TaskStatus;
   created_at: string;
   updated_at: string;
+  tasks?: Task[]; // Добавляем поле для задач колонки
 }
 
-export type TaskStatus = "todo" | "in_progress" | "review" | "done" | "blocked";
+export type TaskStatus = "backlog" | "todo" | "in_progress" | "review" | "done" | "blocked";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
 export interface NotificationSettings {
