@@ -42,14 +42,16 @@ export function TeamPage() {
         
         // Для обычных пользователей показываем только участников проектов, где они сами участвуют
         const userProjects = state.projects.filter(project => 
-          project.members?.some(member => member.userId === state.currentUser?.id)
+          project.members?.some(member => (member.id || member.userId) === state.currentUser?.id) ||
+          project.created_by === state.currentUser?.id
         );
         
         const uniqueMembers = new Map();
         userProjects.forEach(project => {
           project.members?.forEach(member => {
-            if (member.isApproved && !uniqueMembers.has(member.userId)) {
-              uniqueMembers.set(member.userId, member);
+            const memberId = member.id || member.userId;
+            if ((member.isApproved !== false) && !uniqueMembers.has(memberId)) {
+              uniqueMembers.set(memberId, member);
             }
           });
         });
@@ -65,15 +67,16 @@ export function TeamPage() {
 
   const getUserStats = (userId: string) => {
     const userTasks = state.tasks.filter(
-      (task) => task.assignees?.some(a => a.id === userId)
+      (task) => task.assignee_id === userId || task.created_by === userId
     );
     const completedTasks = userTasks.filter((task) => task.status === "done");
     const inProgressTasks = userTasks.filter(
       (task) => task.status === "in_progress"
     );
     const overdueTasks = userTasks.filter((task) => {
-      if (!task.due_date) return false;
-      return new Date(task.due_date) < new Date() && task.status !== "done";
+      if (!task.deadline && !task.due_date) return false;
+      const dueDate = task.deadline || task.due_date;
+      return new Date(dueDate) < new Date() && task.status !== "done";
     });
 
     return {
@@ -83,7 +86,7 @@ export function TeamPage() {
       overdue: overdueTasks.length,
       completionRate:
       userTasks.length > 0 ?
-      Math.round(completedTasks.length / userTasks.length * 100) :
+      Math.round((completedTasks.length / userTasks.length) * 100) :
       0
     };
   };
@@ -108,7 +111,7 @@ export function TeamPage() {
     
     const updatedProject = {
       ...state.selectedProject,
-      members: state.selectedProject.members?.filter(m => m.userId !== memberToRemove) || []
+      members: state.selectedProject.members?.filter(m => (m.id || m.userId) !== memberToRemove) || []
     };
     dispatch({ type: 'UPDATE_PROJECT', payload: updatedProject });
     setMemberToRemove(null);
@@ -116,7 +119,7 @@ export function TeamPage() {
 
   const getMemberTasks = (memberId: string) => {
     return state.tasks.filter(task => 
-      task.assignees?.some(a => a.id === memberId)
+      task.assignee_id === memberId || task.created_by === memberId
     );
   };
 
@@ -296,11 +299,11 @@ export function TeamPage() {
           data-oid="abx25x8">
 
           {filteredMembers.map((member) => {
-            const stats = getUserStats(member.userId);
+            const stats = getUserStats(member.id || member.userId);
 
             return (
               <div
-                key={member.userId}
+                key={member.id || member.userId}
                 className="bg-white/5 rounded-xl p-6 hover:bg-white/10 transition-colors"
                 data-oid="mk44f21">
 
@@ -448,22 +451,22 @@ export function TeamPage() {
                 {/* Actions */}
                 <div className="flex gap-2 mt-4" data-oid="yub11sg">
                   <button
-                    onClick={() => handleShowTasks(member.userId)}
+                    onClick={() => handleShowTasks(member.id || member.userId)}
                     className="flex-1 px-3 py-2 bg-primary-500/20 text-primary-300 rounded-lg hover:bg-primary-500/30 transition-colors text-sm"
                     data-oid="34ovrb0">
 
                     Задачи
                   </button>
                   <button
-                    onClick={() => handleShowProfile(member.userId)}
+                    onClick={() => handleShowProfile(member.id || member.userId)}
                     className="flex-1 px-3 py-2 bg-white/10 text-gray-300 rounded-lg hover:bg-white/20 transition-colors text-sm"
                     data-oid="8rvijfa">
 
                     Профиль
                   </button>
-                  {state.selectedProject && state.currentUser?.role === 'admin' && member.userId !== state.currentUser?.id && (
+                  {state.selectedProject && state.currentUser?.role === 'admin' && (member.id || member.userId) !== state.currentUser?.id && (
                     <button
-                      onClick={() => handleRemoveFromProject(member.userId)}
+                      onClick={() => handleRemoveFromProject(member.id || member.userId)}
                       className="px-3 py-2 bg-primary-700/20 text-primary-300 rounded-lg hover:bg-primary-700/30 transition-colors text-sm"
                       title="Удалить из проекта">
                       <X className="w-4 h-4" />

@@ -223,14 +223,14 @@ const convertApiProjectToProject = (apiProject: any): Project => {
   };
 };
 
-const convertApiBoardToBoard = (apiBoard: ApiBoard): Board => ({
+const convertApiBoardToBoard = (apiBoard: any): Board => ({
   id: apiBoard.id,
   name: apiBoard.name,
   description: apiBoard.description,
-  project_id: apiBoard.projectId,
-  created_by: '', // Default value since API doesn't provide this
-  created_at: apiBoard.createdAt,
-  updated_at: apiBoard.updatedAt
+  project_id: apiBoard.project_id || apiBoard.projectId, // Handle both field formats
+  created_by: apiBoard.created_by || '', // Default value if not provided
+  created_at: apiBoard.created_at || apiBoard.createdAt,
+  updated_at: apiBoard.updated_at || apiBoard.updatedAt
 });
 
 const convertApiTaskToTask = (apiTask: ApiTask): Task => ({
@@ -572,20 +572,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loadBoards = useCallback(async (projectId: string): Promise<void> => {
     try {
-      const response = await api.getBoards(projectId);
+      console.log('🔄 AppContext: Loading boards for project:', projectId);
+      const response = await api.getBoards(projectId, {
+        includeArchived: false,
+        sortBy: 'created_at',
+        sortOrder: 'desc'
+      });
+      
+      console.log('📨 AppContext: loadBoards API response:', response);
       
       if (response.error) {
-        console.error('Load boards error:', response.error);
+        console.error('❌ AppContext: Load boards error:', response.error);
         return;
       }
       
-      if (response.data.boards) {
-        const boards = response.data.boards.map(convertApiBoardToBoard);
-        
-        // Note: Board interface doesn't include columns property
-        // Columns will be loaded separately when needed
+      // API возвращает response.data с boards
+      const boardsData = response.data?.data?.boards || response.data?.boards;
+      console.log('📋 AppContext: Extracted boards data:', boardsData);
+      
+      if (boardsData && Array.isArray(boardsData)) {
+        const boards = boardsData.map(convertApiBoardToBoard);
+        console.log('✅ AppContext: Converted boards:', boards.length, 'items');
         
         dispatch({ type: "SET_BOARDS", payload: boards });
+        console.log('✅ AppContext: Boards set in state');
         
         // Автоматически выбираем первую доску, если нет выбранной доски или она не принадлежит текущему проекту
         if (boards.length > 0) {
@@ -594,12 +604,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
             !boards.find(board => board.id === currentSelectedBoard.id);
           
           if (shouldSelectNewBoard) {
+            console.log('🎯 AppContext: Auto-selecting first board:', boards[0].name);
             dispatch({ type: "SELECT_BOARD", payload: boards[0] });
+          } else {
+            console.log('🎯 AppContext: Keeping current board selection');
           }
+        } else {
+          console.log('⚠️ AppContext: No boards found for project');
         }
+      } else {
+        console.warn('⚠️ AppContext: No boards data found in response');
       }
     } catch (error) {
-      console.error('Failed to load boards:', error);
+      console.error('❌ AppContext: Failed to load boards:', error);
     }
   }, [dispatch, state.selectedBoard]);
 
@@ -806,31 +823,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
     project_id: string; // Изменено с projectId для соответствия схеме
   }): Promise<boolean> => {
     try {
-      const response = await api.createBoard({
+      console.log('🔄 Creating board with data:', boardData);
+      
+      const apiRequest = {
         name: boardData.name,
         description: boardData.description,
         projectId: boardData.project_id, // Преобразуем обратно для API
-        visibility: 'public',
+        visibility: 'public' as const,
         color: '#6366f1',
         allowComments: true,
         allowAttachments: true,
         autoArchive: false
-      });
+      };
+      
+      console.log('📡 API request data:', apiRequest);
+      
+      const response = await api.createBoard(apiRequest);
+      
+      console.log('📨 API response:', response);
       
       if (response.error) {
-        console.error('Create board error:', response.error);
+        console.error('❌ Create board error:', response.error);
         return false;
       }
       
-      if (response.data.board) {
-        const board = convertApiBoardToBoard(response.data.board);
+      // API возвращает board данные напрямую в response.data, а не в response.data.board
+      if (response.data) {
+        console.log('✅ Board data received:', response.data);
+        const board = convertApiBoardToBoard(response.data);
+        console.log('🔄 Converted board:', board);
         dispatch({ type: "ADD_BOARD", payload: board });
+        console.log('✅ Board added to state successfully');
         return true;
       }
       
+      console.warn('⚠️ No data in response:', response);
       return false;
     } catch (error) {
-      console.error('Failed to create board:', error);
+      console.error('❌ Failed to create board:', error);
       return false;
     }
   };

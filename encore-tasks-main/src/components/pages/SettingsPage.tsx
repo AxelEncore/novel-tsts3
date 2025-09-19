@@ -42,17 +42,45 @@ export function SettingsPage() {
     // Settings are now managed in the global context
   }, [state.settings]);
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!state.currentUser) return;
 
-    const updatedUser = {
-      ...state.currentUser,
-      name: profileData.name,
-      email: profileData.email,
-      avatar: profileData.avatar
-    };
+    try {
+      const response = await fetch(`/api/users/${state.currentUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: profileData.name,
+          email: profileData.email,
+        }),
+      });
 
-    dispatch({ type: "SET_CURRENT_USER", payload: updatedUser });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Ошибка при сохранении');
+      }
+
+      const { user } = await response.json();
+      
+      // Обновляем пользователя в глобальном состоянии
+      const updatedUser = {
+        ...state.currentUser,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar || state.currentUser.avatar
+      };
+
+      dispatch({ type: "SET_CURRENT_USER", payload: updatedUser });
+      
+      // Показываем уведомление об успешном сохранении
+      alert('Профиль успешно обновлен!');
+      
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Ошибка при сохранении профиля: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
+    }
   };
 
   const handleSettingsChange = (key: string, value: any) => {

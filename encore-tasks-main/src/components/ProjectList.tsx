@@ -5,6 +5,7 @@ import { ProjectWithStats, ProjectFilters, ProjectSort } from '../types/core.typ
 import ProjectCard from './ProjectCard';
 import CreateProjectModal from './CreateProjectModal';
 import CreateProjectWithBoardsModal from './CreateProjectWithBoardsModal';
+import { ProjectMembersModal } from './ProjectMembersModal';
 import { toast } from 'sonner';
 
 interface ProjectListProps {
@@ -22,6 +23,8 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCreateWithBoardsModal, setShowCreateWithBoardsModal] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -114,6 +117,11 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
       )
     );
     toast.success(archived $3 'Проект архивирован!' : 'Проект восстановлен!');
+  };
+
+  const handleManageMembers = (projectId: string) => {
+    setSelectedProjectId(projectId);
+    setShowMembersModal(true);
   };
 
   const handleSortChange = (newSortBy: ProjectSort) => {
@@ -296,10 +304,13 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
                 key={project.id}
                 project={project}
                 viewMode={viewMode}
-                onProjectUpdated={handleProjectUpdated}
-                onProjectDeleted={handleProjectDeleted}
-                onProjectArchived={handleProjectArchived}
-                onProjectSelect={onProjectSelect}
+                onClick={() => onProjectSelect(project)}
+                onEdit={handleProjectUpdated}
+                onDelete={handleProjectDeleted}
+                onArchive={handleProjectArchived}
+                onManageMembers={handleManageMembers}
+                currentUserId={currentUser?.id}
+                isAdmin={currentUser?.role === 'admin'}
               />
             ))}
           </div>
@@ -331,6 +342,18 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
         onClose={() => setShowCreateWithBoardsModal(false)}
         onProjectCreated={handleProjectCreated}
       />
+      
+      {/* Модальное окно управления участниками */}
+      {selectedProjectId && (
+        <ProjectMembersModal
+          isOpen={showMembersModal}
+          onClose={() => {
+            setShowMembersModal(false);
+            setSelectedProjectId(null);
+          }}
+          projectId={selectedProjectId}
+        />
+      )}
     </div>
   );
 };

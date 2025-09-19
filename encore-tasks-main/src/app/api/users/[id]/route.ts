@@ -18,17 +18,28 @@ export async function PUT(
       );
     }
 
-    // Проверка прав администратора
-    const adminCheck = await requireAdmin(request);
-    if (!adminCheck.success) {
+    const userId = (await params).id;
+    const requestData = await request.json();
+    const { role, status, name, email } = requestData;
+    
+    // Пользователь может обновить только свой профиль или админ может обновить любой
+    const isCurrentUser = userId === authResult.user?.userId;
+    const isAdmin = authResult.user?.role === 'admin';
+    
+    if (!isCurrentUser && !isAdmin) {
       return NextResponse.json(
-        { error: adminCheck.error || 'Недостаточно прав' },
+        { error: 'Недостаточно прав для изменения этого пользователя' },
         { status: 403 }
       );
     }
-
-    const userId = (await params).id;
-    const { role, status } = await request.json();
+    
+    // Только админы могут менять роли и статусы
+    if ((role !== undefined || status !== undefined) && !isAdmin) {
+      return NextResponse.json(
+        { error: 'Только администраторы могут менять роли и статусы' },
+        { status: 403 }
+      );
+    }
 
     // Проверка существования пользователя
     const existingUser = await databaseAdapter.getUserById(userId);
@@ -40,15 +51,25 @@ export async function PUT(
     }
 
     // Подготовка данных для обновления
-    const updates: { role$1: 'admin' | 'manager' | 'user'; isApproved$1: boolean } = {};
-    if (role !== undefined) {
+    const updates: any = {};
+    
+    // Обычные поля профиля (может обновлять любой пользователь для себя)
+    if (name !== undefined) {
+      updates.name = name;
+    }
+    if (email !== undefined) {
+      updates.email = email;
+    }
+    
+    // Административные поля (только для админов)
+    if (role !== undefined && isAdmin) {
       updates.role = role as 'admin' | 'manager' | 'user';
     }
-    if (status !== undefined) {
+    if (status !== undefined && isAdmin) {
       if (status === 'approved') {
-        updates.isApproved = true;
+        updates.is_approved = true;
       } else {
-        updates.isApproved = status === 'active';
+        updates.is_approved = status === 'active';
       }
     }
 
@@ -64,11 +85,11 @@ export async function PUT(
 
     // Преобразование в формат API
     const userResult = {
-      id: Number(updatedUser.id),
+      id: updatedUser.id,
       name: updatedUser.name,
       email: updatedUser.email,
       role: updatedUser.role,
-      status: updatedUser.isApproved $1 'active' : 'inactive',
+      status: updatedUser.is_approved ? 'active' : 'inactive',
       avatar: updatedUser.avatar || null,
       createdAt: updatedUser.created_at,
       updatedAt: updatedUser.updated_at,

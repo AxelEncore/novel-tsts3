@@ -366,6 +366,8 @@ class ApiClient {
     allowAttachments: boolean;
     autoArchive: boolean;
   }) {
+    console.log('📡 API Client createBoard called with:', boardData);
+    
     // Преобразуем camelCase в snake_case для API
     const apiData = {
       name: boardData.name,
@@ -378,10 +380,16 @@ class ApiClient {
       autoArchive: boardData.autoArchive
     };
     
-    return this.request<{ board: any }>('/boards', {
+    console.log('📡 API Client transformed data:', apiData);
+    
+    const response = await this.request<any>('/boards', {
       method: 'POST',
       body: JSON.stringify(apiData),
     });
+    
+    console.log('📨 API Client received response:', response);
+    
+    return response;
   }
 
   async deleteBoard(boardId: string) {

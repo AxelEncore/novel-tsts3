@@ -54,7 +54,7 @@ const getIconComponent = (iconName: string) => {
 };
 
 export function Sidebar({ isCollapsed, onToggle, onNavigate, currentPage }: SidebarProps) {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, loadBoards } = useApp();
   const { ConfirmationComponent, confirm } = useConfirmation();
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
   const [projectSearchTerm, setProjectSearchTerm] = useState("");
@@ -63,7 +63,6 @@ export function Sidebar({ isCollapsed, onToggle, onNavigate, currentPage }: Side
   const navigationItems = [
     { id: "home", label: "Главная", icon: Home, color: "text-blue-400" },
     { id: "boards", label: "Доски", icon: Kanban, color: "text-purple-400" },
-    { id: "projects", label: "Проекты", icon: Briefcase, color: "text-green-400" },
     { id: "calendar", label: "Календарь", icon: Calendar, color: "text-orange-400" },
     { id: "team", label: "Команда", icon: Users, color: "text-cyan-400" },
     { id: "notifications", label: "Уведомления", icon: MessageCircle, color: "text-yellow-400" },
@@ -82,9 +81,19 @@ export function Sidebar({ isCollapsed, onToggle, onNavigate, currentPage }: Side
     project.name.toLowerCase().includes(projectSearchTerm.toLowerCase())
   );
 
-  const handleProjectSelect = (project: any) => {
+  const handleProjectSelect = async (project: any) => {
+    console.log('🎯 Sidebar: Selecting project:', project.name);
     dispatch({ type: "SELECT_PROJECT", payload: project });
     onNavigate("boards");
+    
+    // Автоматически загружаем доски для выбранного проекта
+    try {
+      console.log('🔄 Sidebar: Auto-loading boards for project:', project.id);
+      await loadBoards(project.id);
+      console.log('✅ Sidebar: Boards loaded successfully');
+    } catch (error) {
+      console.error('❌ Sidebar: Failed to load boards:', error);
+    }
   };
 
   const handleBoardSelect = (board: any) => {

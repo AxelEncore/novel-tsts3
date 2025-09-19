@@ -140,17 +140,10 @@ export function CreateProjectModal({
         name: projectName,
         description: '',
         color: formData.color,
-        icon: '📋',
-        members: selectedMembers.map((member) => ({
-          id: member.id,
-          userId: member.id,
-          name: member.name,
-          role: member.id === state.currentUser?.id ? "owner" : "member",
-          joinedAt: new Date().toISOString()
-        })),
-        createdBy: state.currentUser.id,
-        telegramChatId: formData.telegramChatId.trim() || undefined,
-        telegramTopicId: formData.telegramTopicId.trim() || undefined
+        icon_url: '📋',
+        member_ids: formData.memberIds, // Передаем ID участников
+        telegram_chat_id: formData.telegramChatId.trim() || undefined,
+        telegram_topic_id: formData.telegramTopicId.trim() || undefined
       };
 
       console.log('Финальные данные проекта для создания:', newProject);

@@ -120,6 +120,19 @@ export async function POST(request: NextRequest) {
       telegram_topic_id: projectData.telegram_topic_id || null
     });
 
+    // Добавляем участников в проект (если они указаны)
+    if (projectData.member_ids && projectData.member_ids.length > 0) {
+      try {
+        for (const memberId of projectData.member_ids) {
+          await databaseAdapter.addProjectMember(project.id, memberId, 'member');
+        }
+        console.log(`✓ Added ${projectData.member_ids.length} members to project`);
+      } catch (memberError) {
+        console.error('Error adding project members:', memberError);
+        // Не прерываем создание проекта из-за ошибки добавления участников
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {

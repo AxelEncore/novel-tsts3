@@ -5,13 +5,14 @@ import { toast } from 'sonner';
 
 interface ProjectCardProps {
   project: ProjectWithStats;
-  viewMode$1: 'grid' | 'list';
+  viewMode?: 'grid' | 'list';
   onClick: () => void;
-  onEdit$1: (project: ProjectWithStats) => void;
-  onArchive$2: (projectId: string) => void;
-  onDelete$3: (projectId: string) => void;
-  currentUserId$4: string;
-  isAdmin$5: boolean;
+  onEdit?: (project: ProjectWithStats) => void;
+  onArchive?: (projectId: string) => void;
+  onDelete?: (projectId: string) => void;
+  onManageMembers?: (projectId: string) => void;
+  currentUserId?: string;
+  isAdmin?: boolean;
 }
 
 const ProjectCard: React.FC<ProjectCardProps> = ({ 
@@ -21,6 +22,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   onEdit,
   onArchive,
   onDelete,
+  onManageMembers,
   currentUserId,
   isAdmin = false
 }) => {
@@ -148,6 +150,20 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                       </button>
                     )}
                     
+                    {canEdit && onManageMembers && (
+                      <button
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowMenu(false);
+                          onManageMembers(project.id);
+                        }}
+                      >
+                        <Users size={16} />
+                        <span>Участники</span>
+                      </button>
+                    )}
+                    
                     {canArchive && (
                       <button
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
@@ -246,6 +262,20 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                     >
                       <Edit size={16} />
                       <span>Редактировать</span>
+                    </button>
+                  )}
+                  
+                  {canEdit && onManageMembers && (
+                    <button
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMenu(false);
+                        onManageMembers(project.id);
+                      }}
+                    >
+                      <Users size={16} />
+                      <span>Участники</span>
                     </button>
                   )}
                   

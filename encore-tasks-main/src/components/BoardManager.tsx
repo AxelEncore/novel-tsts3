@@ -14,7 +14,7 @@ interface BoardManagerProps {
 }
 
 function BoardManager({ isOpen, onClose }: BoardManagerProps) {
-  const { state, dispatch, createBoard } = useApp();
+  const { state, dispatch, createBoard, loadBoards } = useApp();
   const [editingBoard, setEditingBoard] = useState<Board | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -33,12 +33,14 @@ function BoardManager({ isOpen, onClose }: BoardManagerProps) {
 
   const handleCreateBoard = async (boardData: Omit<Board, "id" | "createdAt">) => {
     try {
-      console.log('Creating board with data:', {
+      console.log('🚀 BoardManager handleCreateBoard called with:', {
         name: boardData.name,
         description: boardData.description,
         project_id: boardData.project_id,
         selectedProjectId: state.selectedProject?.id
       });
+      
+      console.log('📝 BoardManager calling AppContext createBoard...');
       
       const success = await createBoard({
         name: boardData.name,
@@ -46,14 +48,19 @@ function BoardManager({ isOpen, onClose }: BoardManagerProps) {
         project_id: boardData.project_id
       });
       
+      console.log('📝 BoardManager createBoard result:', success);
+      
       if (success) {
+        console.log('✅ BoardManager: Board created successfully, closing modal');
         setShowCreateModal(false);
+        // Доска уже добавлена в стейт через ADD_BOARD action в createBoard
+        console.log('✅ BoardManager: Board should now appear in the list');
       } else {
-        console.error('Failed to create board');
+        console.error('❌ BoardManager: Failed to create board');
         // TODO: Show error notification
       }
     } catch (error) {
-      console.error('Error creating board:', error);
+      console.error('❌ BoardManager: Error creating board:', error);
       // TODO: Show error notification
     }
   };

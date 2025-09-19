@@ -121,7 +121,7 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
         throw new Error(errorData.message || 'Ошибка при создании доски');
       }
 
-      const { board } = await response.json();
+      const { data: board } = await response.json();
 
       // Создание колонок по умолчанию
       const columnPromises = DEFAULT_COLUMNS.map(async (columnData, index) => {
