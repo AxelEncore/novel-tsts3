@@ -206,19 +206,22 @@ const convertApiUserToUser = (apiUser: ApiUser): User => ({
   avatar: apiUser.avatar
 });
 
-const convertApiProjectToProject = (apiProject: ApiProject): Project => ({
-  id: apiProject.id,
-  name: apiProject.name,
-  description: apiProject.description || '',
-  color: apiProject.color,
-  icon_url: apiProject.icon || '📋',
-  members: [], // Will be loaded separately
-  created_by: apiProject.created_by,
-  created_at: apiProject.created_at,
-  updated_at: apiProject.updated_at,
-  telegramChatId: undefined,
-  telegramTopicId: undefined
-});
+const convertApiProjectToProject = (apiProject: any): Project => {
+  console.log('🔄 Converting API project:', apiProject);
+  return {
+    id: apiProject.id,
+    name: apiProject.name,
+    description: apiProject.description || '',
+    color: apiProject.color,
+    icon_url: apiProject.icon || '📋',
+    members: [], // Will be loaded separately
+    created_by: apiProject.created_by || apiProject.created_by_username || 'unknown',
+    created_at: apiProject.created_at,
+    updated_at: apiProject.updated_at,
+    telegramChatId: apiProject.telegram_chat_id,
+    telegramTopicId: apiProject.telegram_topic_id
+  };
+};
 
 const convertApiBoardToBoard = (apiBoard: ApiBoard): Board => ({
   id: apiBoard.id,
@@ -542,16 +545,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loadProjects = useCallback(async (): Promise<void> => {
     try {
+      console.log('🔄 AppContext: Loading projects...');
       const response = await api.getProjects();
+      console.log('📥 AppContext: Projects API response:', response);
       
       if (response.error) {
         console.error('Load projects error:', response.error);
         return;
       }
       
-      if (response.data.projects) {
-        const projects = response.data.projects.map(convertApiProjectToProject);
+      // API возвращает {data: {success: true, data: {projects: [...]}}}
+      const projectsData = response.data?.data?.projects || response.data?.projects;
+      console.log('📊 AppContext: Extracted projects data:', projectsData);
+      
+      if (projectsData && Array.isArray(projectsData)) {
+        const projects = projectsData.map(convertApiProjectToProject);
+        console.log('✅ AppContext: Converted projects:', projects.length, 'items');
         dispatch({ type: "SET_PROJECTS", payload: projects });
+      } else {
+        console.warn('❌ AppContext: No projects data found in response');
       }
     } catch (error) {
       console.error('Failed to load projects:', error);
@@ -611,16 +623,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loadUsers = useCallback(async (): Promise<void> => {
     try {
+      console.log('🔄 AppContext: Loading users...');
       const response = await api.getUsers();
+      console.log('📥 AppContext: Users API response:', response);
       
       if (response.error) {
         console.error('Load users error:', response.error);
         return;
       }
       
-      if (response.data.users) {
-        const users = response.data.users.map(convertApiUserToUser);
+      // API возвращает {data: {success: true, data: {users: [...]}}}
+      const usersData = response.data?.data?.users || response.data?.users;
+      console.log('📊 AppContext: Extracted users data:', usersData);
+      
+      if (usersData && Array.isArray(usersData)) {
+        const users = usersData.map(convertApiUserToUser);
+        console.log('✅ AppContext: Converted users:', users.length, 'items');
         dispatch({ type: "SET_USERS", payload: users });
+      } else {
+        console.warn('❌ AppContext: No users data found in response');
       }
     } catch (error) {
       console.error('Failed to load users:', error);
