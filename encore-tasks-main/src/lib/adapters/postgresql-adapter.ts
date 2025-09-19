@@ -186,7 +186,7 @@ export class PostgreSQLAdapter {
   }
 
   async getAllUsers(): Promise<any[]> {
-    const query = 'SELECT id, email, name, role, created_at, updated_at FROM users ORDER BY created_at DESC';
+    const query = 'SELECT id, email, name, role, is_approved, created_at, updated_at FROM users ORDER BY created_at DESC';
     const result = await this.executeRawQuery(query);
     return result.rows;
   }

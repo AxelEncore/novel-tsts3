@@ -26,15 +26,15 @@ export async function GET(request: NextRequest) {
     // Фильтрация пользователей в зависимости от роли
     let filteredUsers = allUsers;
     if (role !== 'admin') {
-      filteredUsers = allUsers.filter(user => user.isApproved === true);
+      filteredUsers = allUsers.filter(user => user.is_approved === true);
     }
     
     // Фильтрация по статусу
     if (status && role === 'admin') {
       if (status === 'active') {
-        filteredUsers = filteredUsers.filter(user => user.isApproved === true);
+        filteredUsers = filteredUsers.filter(user => user.is_approved === true);
       } else {
-        filteredUsers = filteredUsers.filter(user => user.isApproved !== true);
+        filteredUsers = filteredUsers.filter(user => user.is_approved !== true);
       }
     }
     
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         name: user.name,
         email: user.email,
         role: user.role,
-        status: user.isApproved ? 'active' : 'inactive',
+        status: user.is_approved ? 'active' : 'inactive',
         avatar: user.avatar || null,
         createdAt: user.created_at,
         updatedAt: user.updated_at,
