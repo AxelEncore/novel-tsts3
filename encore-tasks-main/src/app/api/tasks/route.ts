@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
       SELECT 
         t.id, t.title, t.description, t.column_id, t.priority, t.status, t.position, 
         t.created_at, t.updated_at, t.reporter_id, 
-        c.name as column_name, b.name as board_name, p.name as project_name, 
+        c.title as column_name, b.name as board_name, p.name as project_name, 
         u.email as reporter_email 
       FROM tasks t 
       LEFT JOIN columns c ON t.column_id = c.id 
