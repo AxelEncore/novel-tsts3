@@ -141,10 +141,10 @@ export function TaskCard({
       icon: CheckCircle, 
       label: 'Выполнено' 
     },
-    blocked: { 
-      color: 'bg-red-100 text-red-800 border-red-200', 
+    deferred: { 
+      color: 'bg-orange-100 text-orange-800 border-orange-200', 
       icon: AlertCircle, 
-      label: 'Заблокировано' 
+      label: 'Отложено' 
     }
   };
 
@@ -174,7 +174,7 @@ export function TaskCard({
                 {/* Status Icon */}
                 <button
                   onClick={() => {
-                    const statuses: Task['status'][] = ['todo', 'in_progress', 'review', 'done', 'blocked'];
+                    const statuses: Task['status'][] = ['todo', 'in_progress', 'review', 'done', 'deferred'];
                     const currentIndex = statuses.indexOf(task.status);
                     const nextStatus = statuses[(currentIndex + 1) % statuses.length];
                     handleStatusChange(nextStatus);
@@ -319,7 +319,7 @@ export function TaskCard({
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => {
-                  const statuses: Task['status'][] = ['todo', 'in_progress', 'review', 'done', 'blocked'];
+                  const statuses: Task['status'][] = ['todo', 'in_progress', 'review', 'done', 'deferred'];
                   const currentIndex = statuses.indexOf(task.status);
                   const nextStatus = statuses[(currentIndex + 1) % statuses.length];
                   handleStatusChange(nextStatus);

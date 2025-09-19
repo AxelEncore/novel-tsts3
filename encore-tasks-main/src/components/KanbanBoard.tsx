@@ -38,16 +38,16 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
         const columnName = column.name || column.title || '';
         if (columnName) {
           const name = columnName.toLowerCase();
-          if (name.includes('беклог') || name.includes('backlog')) {
-            mapping[column.id] = 'backlog';
-          } else if (name.includes('выполнению') || name.includes('todo')) {
+          if (name.includes('выполнению') || name.includes('todo')) {
             mapping[column.id] = 'todo';
-          } else if (name.includes('работе') || name.includes('progress')) {
+          } else if (name.includes('работе') || name.includes('progress') || name.includes('процессе')) {
             mapping[column.id] = 'in_progress';
           } else if (name.includes('проверк') || name.includes('review')) {
             mapping[column.id] = 'review';
           } else if (name.includes('выполнено') || name.includes('done')) {
             mapping[column.id] = 'done';
+          } else if (name.includes('отложено') || name.includes('deferred') || name.includes('отложен')) {
+            mapping[column.id] = 'deferred';
           } else {
             // По умолчанию - todo
             mapping[column.id] = 'todo';

@@ -6,7 +6,7 @@ export type UUID = string;
 export type Timestamp = string;
 
 // Базовые статусы и приоритеты
-export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done' | 'blocked';
+export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done' | 'deferred';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type ProjectStatus = 'active' | 'archived' | 'completed';
 export type Visibility = 'private' | 'public';

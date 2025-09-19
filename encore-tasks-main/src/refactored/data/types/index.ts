@@ -160,7 +160,7 @@ export interface Task extends BaseEntity {
   };
 }
 
-export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done' | 'blocked';
+export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done' | 'deferred';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export interface TaskMetadata {

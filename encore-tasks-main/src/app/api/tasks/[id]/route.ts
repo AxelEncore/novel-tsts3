@@ -9,7 +9,7 @@ const databaseAdapter = DatabaseAdapter.getInstance();
 const updateTaskSchema = z.object({
   title: z.string().min(1).max(500).optional(),
   description: z.string().max(2000).optional(),
-  status: z.enum(['todo', 'in_progress', 'review', 'done', 'blocked']).optional(),
+  status: z.enum(['todo', 'in_progress', 'review', 'done', 'deferred']).optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
   dueDate: z.string().datetime().optional(),
   columnId: z.string().uuid().optional(),

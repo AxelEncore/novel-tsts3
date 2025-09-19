@@ -11,7 +11,7 @@ export type ProjectId = string;
 export type UserId = string;
 
 // Статусы и приоритеты
-export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done' | 'blocked';
+export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done' | 'deferred';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 export type BoardVisibility = 'private' | 'team' | 'public';
 

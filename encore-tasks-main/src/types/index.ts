@@ -123,7 +123,7 @@ export interface Column {
   tasks?: Task[]; // Добавляем поле для задач колонки
 }
 
-export type TaskStatus = "backlog" | "todo" | "in_progress" | "review" | "done" | "blocked";
+export type TaskStatus = "todo" | "in_progress" | "review" | "done" | "deferred";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
 export interface NotificationSettings {

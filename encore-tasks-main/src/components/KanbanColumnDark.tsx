@@ -59,7 +59,7 @@ const getColumnStyles = (columnName: string | undefined) => {
       header: 'text-green-300',
       accent: 'bg-green-500',
     };
-  } else if (name.includes('отложен') || name.includes('delayed')) {
+  } else if (name.includes('отложен') || name.includes('deferred') || name.includes('delayed')) {
     return {
       background: 'bg-orange-500/10 border-orange-500/30',
       header: 'text-orange-300',

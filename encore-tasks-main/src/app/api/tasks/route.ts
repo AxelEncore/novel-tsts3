@@ -14,7 +14,7 @@ const createTaskSchema = z.object({
   column_id: z.string().min(1, 'ID колонки обязателен'),
   assignee_ids: z.array(z.string().uuid('Неверный формат ID исполнителя')).optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
-  status: z.enum(['todo', 'in_progress', 'review', 'done', 'blocked']).default('todo'),
+  status: z.enum(['todo', 'in_progress', 'review', 'done', 'deferred']).optional(),
   due_date: z.string().datetime().optional(),
   estimated_hours: z.number().min(0).max(1000).optional(),
   parent_task_id: z.string().uuid('Неверный формат ID родительской задачи').optional(),

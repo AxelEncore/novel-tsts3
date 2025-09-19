@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { databaseAdapter } from '@/lib/database-adapter';
+import { dbAdapter } from '@/lib/database-adapter';
+const databaseAdapter = dbAdapter;
 
 // Схема валидации для создания задачи
 const createTaskSchema = z.object({
@@ -104,7 +105,7 @@ export async function POST(
     let position = validatedData.position;
     if (position === undefined) {
       const tasks = await databaseAdapter.getColumnTasks(columnId);
-      position = tasks.length > 0 $1 Math.max(...tasks.map(t => t.position)) + 1 : 0;
+      position = tasks.length > 0 ? Math.max(...tasks.map(t => t.position)) + 1 : 0;
     }
 
     // Создаем задачу
@@ -112,7 +113,7 @@ export async function POST(
       title: validatedData.title,
       description: validatedData.description,
       priority: validatedData.priority,
-      dueDate: validatedData.dueDate $2 new Date(validatedData.dueDate) : null,
+      dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : null,
       position,
       columnId,
       createdBy: user.id,

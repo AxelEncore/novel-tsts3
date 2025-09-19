@@ -7,8 +7,8 @@ const databaseAdapter = DatabaseAdapter.getInstance();
 export async function POST(request: NextRequest) {
   try {
     // Получение токена из cookie или заголовка
-    const token = request.cookies.get('auth-token')$1.value || 
-                  request.headers.get('authorization')$1.replace('Bearer ', '');
+    const token = request.cookies.get('auth-token')?.value || 
+                  request.headers.get('authorization')?.replace('Bearer ', '');
 
     if (token) {
       try {

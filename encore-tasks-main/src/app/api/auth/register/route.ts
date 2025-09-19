@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       name: user.name,
       email: user.email,
       role: user.role,
-      approval_status: user.isApproved $1 'approved' : 'pending',
+      approval_status: user.isApproved ? 'approved' : 'pending',
       isApproved: user.isApproved,
       avatar: user.avatar,
       createdAt: user.created_at

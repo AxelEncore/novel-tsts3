@@ -15,7 +15,7 @@ interface TaskFormData {
   description: string;
   column_id: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'todo' | 'in_progress' | 'review' | 'done' | 'blocked';
+  status: 'todo' | 'in_progress' | 'review' | 'done' | 'deferred';
   due_date: string;
   assignee_ids: string[];
   tags: string[];
@@ -263,7 +263,7 @@ export function EditTaskModal({
     todo: 'bg-blue-500/20 text-blue-300',
     in_progress: 'bg-yellow-500/20 text-yellow-300',
     review: 'bg-purple-500/20 text-purple-300',
-    blocked: 'bg-red-500/20 text-red-300',
+    deferred: 'bg-orange-500/20 text-orange-300',
     done: 'bg-green-500/20 text-green-300'
   };
 
@@ -363,7 +363,7 @@ export function EditTaskModal({
                       <SelectItem value="todo">К выполнению</SelectItem>
                       <SelectItem value="in_progress">В работе</SelectItem>
                       <SelectItem value="review">На проверке</SelectItem>
-                      <SelectItem value="blocked">Заблокировано</SelectItem>
+                      <SelectItem value="deferred">Отложено</SelectItem>
                       <SelectItem value="done">Выполнено</SelectItem>
                     </SelectContent>
                   </Select>
@@ -519,7 +519,7 @@ export function EditTaskModal({
                       {formData.status === 'todo' ? 'К выполнению' :
                        formData.status === 'in_progress' ? 'В работе' :
                        formData.status === 'review' ? 'На проверке' :
-                       formData.status === 'blocked' ? 'Заблокировано' : 'Выполнено'}
+                       formData.status === 'deferred' ? 'Отложено' : 'Выполнено'}
                     </Badge>
                   </div>
                 </div>

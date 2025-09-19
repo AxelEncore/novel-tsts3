@@ -313,7 +313,7 @@ export async function DELETE(
       [columnId]
     );
 
-    const tasksCount = parseInt((tasksCheck[0] as any)$1.count || '0');
+    const tasksCount = parseInt((tasksCheck[0] as any)?.count || '0');
     
     if (tasksCount > 0) {
       return NextResponse.json(
