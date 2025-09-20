@@ -14,11 +14,13 @@ import {
   Plus,
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+  Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { BoardCard } from './BoardCard';
 import { CreateBoardModal } from './CreateBoardModal';
+import ProjectSettingsModal from './ProjectSettingsModal';
 
 interface Board {
   id: string;
@@ -72,6 +74,8 @@ export function BoardList({ currentUser, projects, selectedProjectId }: BoardLis
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<any>(null);
 
   const limit = 12;
 
@@ -134,7 +138,7 @@ export function BoardList({ currentUser, projects, selectedProjectId }: BoardLis
 
   const handleSort = (field: SortField) => {
     if (field === sortField) {
-      setSortOrder(sortOrder === 'asc' $1 'desc' : 'asc');
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
       setSortOrder('desc');
@@ -150,7 +154,7 @@ export function BoardList({ currentUser, projects, selectedProjectId }: BoardLis
 
   const handleBoardUpdated = (updatedBoard: Board) => {
     setBoards(prev => prev.map(board => 
-      board.id === updatedBoard.id $1 updatedBoard : board
+      board.id === updatedBoard.id ? updatedBoard : board
     ));
     toast.success('Доска успешно обновлена');
   };
@@ -163,7 +167,7 @@ export function BoardList({ currentUser, projects, selectedProjectId }: BoardLis
 
   const getSortIcon = (field: SortField) => {
     if (field !== sortField) return null;
-    return sortOrder === 'asc' $1 <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />;
+    return sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />;
   };
 
   const getVisibilityIcon = (visibility: VisibilityFilter) => {
@@ -184,7 +188,7 @@ export function BoardList({ currentUser, projects, selectedProjectId }: BoardLis
         <div>
           <h1 className="text-2xl font-bold">Доски</h1>
           <p className="text-muted-foreground">
-            {totalCount > 0 $1 `Найдено ${totalCount} досок` : 'Доски не найдены'}
+            {totalCount > 0 ? `Найдено ${totalCount} досок` : 'Доски не найдены'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -194,9 +198,24 @@ export function BoardList({ currentUser, projects, selectedProjectId }: BoardLis
             onClick={fetchBoards}
             disabled={loading}
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading $1 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Обновить
           </Button>
+          {projectFilter !== 'all' && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                const project = projects.find(p => p.id === projectFilter);
+                if (project) {
+                  setSelectedProject(project);
+                  setShowSettingsModal(true);
+                }
+              }}
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Настройки проекта
+            </Button>
+          )}
           <CreateBoardModal
             projects={projects}
             onBoardCreated={handleBoardCreated}
@@ -289,7 +308,7 @@ export function BoardList({ currentUser, projects, selectedProjectId }: BoardLis
 
           <div className="flex border rounded-md">
             <Button
-              variant={viewMode === 'grid' $1 'default' : 'ghost'}
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('grid')}
               className="rounded-r-none"
@@ -297,7 +316,7 @@ export function BoardList({ currentUser, projects, selectedProjectId }: BoardLis
               <Grid3X3 className="w-4 h-4" />
             </Button>
             <Button
-              variant={viewMode === 'list' $2 'default' : 'ghost'}
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('list')}
               className="rounded-l-none"
@@ -309,17 +328,17 @@ export function BoardList({ currentUser, projects, selectedProjectId }: BoardLis
       </div>
 
       {/* Список досок */}
-      {loading $3 (
-        <div className={viewMode === 'grid' $4 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+      {loading ? (
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={`skeleton-${i}`} className={viewMode === 'grid' $1 'h-64' : 'h-32'} />
+            <Skeleton key={`skeleton-${i}`} className={viewMode === 'grid' ? 'h-64' : 'h-32'} />
           ))}
         </div>
-      ) : boards.length === 0 $2 (
+      ) : boards.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-muted-foreground mb-4">
             {searchTerm || projectFilter !== 'all' || visibilityFilter !== 'all'
-              $3 'Доски не найдены по заданным критериям'
+              ? 'Доски не найдены по заданным критериям'
               : 'У вас пока нет досок'
             }
           </div>
@@ -335,7 +354,7 @@ export function BoardList({ currentUser, projects, selectedProjectId }: BoardLis
           />
         </div>
       ) : (
-        <div className={viewMode === 'grid' $4 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
           {boards.map((board) => (
             <BoardCard
               key={board.id}
@@ -378,7 +397,7 @@ export function BoardList({ currentUser, projects, selectedProjectId }: BoardLis
               return (
                 <Button
                   key={`page-${pageNum}`}
-                  variant={page === pageNum $1 'default' : 'outline'}
+                  variant={page === pageNum ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPage(pageNum)}
                   disabled={loading}
@@ -398,6 +417,30 @@ export function BoardList({ currentUser, projects, selectedProjectId }: BoardLis
             Следующая
           </Button>
         </div>
+      )}
+      
+      {selectedProject && (
+        <ProjectSettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => {
+            setShowSettingsModal(false);
+            setSelectedProject(null);
+          }}
+          project={selectedProject}
+          onProjectUpdated={(updatedProject) => {
+            // Обновляем проект в списке если нужно
+            toast.success('Проект успешно обновлен!');
+            setShowSettingsModal(false);
+            setSelectedProject(null);
+          }}
+          onProjectDeleted={(deletedId) => {
+            // Удаляем проект из списка если нужно
+            setProjectFilter('all');
+            toast.success('Проект успешно удален!');
+            setShowSettingsModal(false);
+            setSelectedProject(null);
+          }}
+        />
       )}
     </div>
   );

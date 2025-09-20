@@ -31,7 +31,7 @@ function ArchivedTasksModal({ isOpen, onClose, boardId }: ArchivedTasksModalProp
   const handleDeleteTask = async (taskId: string) => {
     const confirmed = await confirm({
       title: 'Удаление задачи',
-      message: 'Вы уверены, что хотите окончательно удалить эту задачу$1 Это действие нельзя отменить.',
+      message: 'Вы уверены, что хотите окончательно удалить эту задачу? Это действие нельзя отменить.',
       confirmText: 'Удалить',
       cancelText: 'Отмена',
       type: 'danger'
@@ -101,11 +101,11 @@ function ArchivedTasksModal({ isOpen, onClose, boardId }: ArchivedTasksModalProp
       if (!bValue) return -1;
       
       if (sortBy === "title") {
-        return sortOrder === "asc" $1 aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+        return sortOrder === "asc" ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
       } else {
         const aTime = new Date(aValue).getTime();
         const bTime = new Date(bValue).getTime();
-        return sortOrder === "asc" $1 aTime - bTime : bTime - aTime;
+        return sortOrder === "asc" ? aTime - bTime : bTime - aTime;
       }
     });
 
@@ -230,21 +230,21 @@ function ArchivedTasksModal({ isOpen, onClose, boardId }: ArchivedTasksModalProp
               className="min-w-0"
             />
             <button
-              onClick={() => setSortOrder(sortOrder === "asc" $1 "desc" : "asc")}
+              onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
               className="px-4 py-3 bg-gray-800/80 backdrop-blur-sm border border-white/20 rounded-xl text-white hover:bg-gray-700/80 hover:border-white/30 transition-all duration-200 shadow-lg focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-400/20"
             >
-              {sortOrder === "asc" $1 "↑" : "↓"}
+              {sortOrder === "asc" ? "↑" : "↓"}
             </button>
           </div>
         </div>
 
         {/* Tasks list */}
         <div className="flex-1 overflow-y-auto p-6">
-          {filteredAndSortedTasks.length === 0 $1 (
+          {filteredAndSortedTasks.length === 0 ? (
             <div className="text-center py-12">
               <Archive className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-400">
-                {(state.archivedTasks || []).filter(task => task.board_id === boardId).length === 0 $1 "Нет архивированных задач" : "Задачи не найдены"}
+                {(state.archivedTasks || []).filter(task => task.board_id === boardId).length === 0 ? "Нет архивированных задач" : "Задачи не найдены"}
               </p>
             </div>
           ) : (
@@ -263,14 +263,14 @@ function ArchivedTasksModal({ isOpen, onClose, boardId }: ArchivedTasksModalProp
                       
                       <div className="flex items-center gap-4 text-xs text-gray-400">
                         <span className={`px-2 py-1 rounded ${
-                          task.priority === 'urgent' $1 'bg-primary-700/20 text-primary-400' :
-          task.priority === 'high' $2 'bg-primary-600/20 text-primary-400' :
-          task.priority === 'medium' $3 'bg-primary-500/20 text-primary-400' :
+                          task.priority === 'urgent' ? 'bg-primary-700/20 text-primary-400' :
+          task.priority === 'high' ? 'bg-primary-600/20 text-primary-400' :
+          task.priority === 'medium' ? 'bg-primary-500/20 text-primary-400' :
           'bg-primary-400/20 text-primary-400'
                         }`}>
-                          {task.priority === 'urgent' $1 'Срочный' :
-                           task.priority === 'high' $2 'Высокий' :
-                           task.priority === 'medium' $3 'Средний' : 'Низкий'}
+                          {task.priority === 'urgent' ? 'Срочный' :
+                           task.priority === 'high' ? 'Высокий' :
+                           task.priority === 'medium' ? 'Средний' : 'Низкий'}
                         </span>
                         
                         {task.assignee_id && (

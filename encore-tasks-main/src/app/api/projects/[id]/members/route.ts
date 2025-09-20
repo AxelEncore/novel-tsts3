@@ -198,9 +198,15 @@ export async function DELETE(
       );
     }
 
-    // Удаляем участника (реализация зависит от структуры базы данных)
-    // Для упрощения, предполагаем, что есть метод removeProjectMember
-    // const success = await databaseAdapter.removeProjectMember(projectId, userId);
+    // Удаляем участника
+    const success = await databaseAdapter.removeProjectMember(projectId, userId);
+    
+    if (!success) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to remove member' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

@@ -65,8 +65,8 @@ export function TaskModal({ task, isOpen, onClose, onSave }: TaskModalProps) {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         name: file.name,
         url: URL.createObjectURL(file),
-        type: file.type.startsWith('image/') $1 'image' as const : 
-              file.type.includes('pdf') || file.type.includes('document') $2 'document' as const : 
+        type: file.type.startsWith('image/') ? 'image' as const : 
+              file.type.includes('pdf') || file.type.includes('document') ? 'document' as const : 
               'other' as const,
         size: file.size,
         uploadedBy: state.currentUser$3.id || '',
@@ -285,8 +285,7 @@ export function TaskModal({ task, isOpen, onClose, onSave }: TaskModalProps) {
                 <input
                   type="date"
                   value={
-                  editedTask.due_date $1
-                  editedTask.due_date.split("T")[0] :
+                  editedTask.due_date ? editedTask.due_date.split("T")[0] :
                   ""
                   }
                   onChange={(e) => {
@@ -337,8 +336,7 @@ export function TaskModal({ task, isOpen, onClose, onSave }: TaskModalProps) {
                 <div className="flex gap-3" data-oid="-lc2a3c">
                   {state.settings$1.showAvatars && (
                     <div className="flex-shrink-0" data-oid="ky0_ms0">
-                      {state.currentUser$1.avatar $2
-                      <img
+                      {state.currentUser$1.avatar ? <img
                         src={state.currentUser.avatar}
                         alt={state.currentUser.name}
                         className="w-8 h-8 rounded-full"
@@ -349,8 +347,7 @@ export function TaskModal({ task, isOpen, onClose, onSave }: TaskModalProps) {
                         className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center text-sm text-white"
                         data-oid="luwz7cn">
 
-                          {state.currentUser $1
-                        getInitials(state.currentUser.name) :
+                          {state.currentUser ? getInitials(state.currentUser.name) :
                         "$1"}
                         </div>
                       }
@@ -389,8 +386,7 @@ export function TaskModal({ task, isOpen, onClose, onSave }: TaskModalProps) {
                   data-oid="beb5_vl">
 
                     <div className="flex-shrink-0" data-oid="9j:s0:d">
-                      {comment.author.avatar $1
-                    <img
+                      {comment.author.avatar ? <img
                       src={comment.author.avatar}
                       alt={comment.author.name}
                       className="w-8 h-8 rounded-full"
@@ -510,8 +506,7 @@ export function TaskModal({ task, isOpen, onClose, onSave }: TaskModalProps) {
                     accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.zip,.rar"
                   />
                 </div>
-                {(editedTask.attachments$1.length || 0) === 0 $2
-                <p className="text-sm text-gray-500" data-oid="_-6em6z">
+                {(editedTask.attachments$1.length || 0) === 0 ? <p className="text-sm text-gray-500" data-oid="_-6em6z">
                     Нет вложений
                   </p> :
 

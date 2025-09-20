@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifyAuth } from '@/lib/auth';
 import { DatabaseAdapter } from '@/lib/database-adapter';
+import { isValidUUID, isTemporaryId } from '@/lib/uuid-validation';
 
 const databaseAdapter = DatabaseAdapter.getInstance();
 
@@ -33,7 +34,16 @@ export async function GET(
 
     const resolvedParams = await params;
     const taskId = resolvedParams.id;
-    if (!taskId) {
+    
+    // Проверяем, является ли ID временным
+    if (isTemporaryId(taskId)) {
+      return NextResponse.json(
+        { error: 'Временные задачи не могут быть загружены' },
+        { status: 400 }
+      );
+    }
+    
+    if (!taskId || !isValidUUID(taskId)) {
       return NextResponse.json(
         { error: 'Некорректный ID задачи' },
         { status: 400 }
@@ -101,7 +111,16 @@ export async function PATCH(
 
     const resolvedParams = await params;
     const taskId = resolvedParams.id;
-    if (!taskId) {
+    
+    // Проверяем, является ли ID временным
+    if (isTemporaryId(taskId)) {
+      return NextResponse.json(
+        { error: 'Временные задачи не могут быть обновлены' },
+        { status: 400 }
+      );
+    }
+    
+    if (!taskId || !isValidUUID(taskId)) {
       return NextResponse.json(
         { error: 'Некорректный ID задачи' },
         { status: 400 }
@@ -195,7 +214,16 @@ export async function DELETE(
 
     const resolvedParams = await params;
     const taskId = resolvedParams.id;
-    if (!taskId) {
+    
+    // Проверяем, является ли ID временным
+    if (isTemporaryId(taskId)) {
+      return NextResponse.json(
+        { error: 'Временные задачи не могут быть удалены' },
+        { status: 400 }
+      );
+    }
+    
+    if (!taskId || !isValidUUID(taskId)) {
       return NextResponse.json(
         { error: 'Некорректный ID задачи' },
         { status: 400 }

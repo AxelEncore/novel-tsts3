@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { DatabaseAdapter } from '@/lib/database-adapter';
-
-const databaseAdapter = DatabaseAdapter.getInstance();
 import { verifyAuth } from '@/lib/auth';
 import { UpdateColumnDto, ColumnWithTasks } from '@/types/core.types';
+import { isValidUUID } from '@/lib/uuid-validation';
+
+const databaseAdapter = DatabaseAdapter.getInstance();
 
 // Схема валидации для обновления колонки
 const updateColumnSchema = z.object({
@@ -68,6 +69,14 @@ export async function GET(
 
     await databaseAdapter.initialize();
     const { id: columnId } = await params;
+    
+    // Проверка валидности UUID
+    if (!isValidUUID(columnId)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid column ID format' },
+        { status: 400 }
+      );
+    }
 
     // Проверка доступа
     const accessCheck = await checkColumnAccess(authResult.user.userId, columnId);
@@ -150,6 +159,15 @@ export async function PUT(
 
     await databaseAdapter.initialize();
     const { id: columnId } = await params;
+    
+    // Проверка валидности UUID
+    if (!isValidUUID(columnId)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid column ID format' },
+        { status: 400 }
+      );
+    }
+    
     const body = await request.json();
     
     const validationResult = updateColumnSchema.safeParse(body);

@@ -187,7 +187,7 @@ export class PostgreSQLAdapter {
   }
 
   async getAllUsers(): Promise<any[]> {
-    const query = 'SELECT id, email, name, role, is_approved, created_at, updated_at FROM users ORDER BY created_at DESC';
+    const query = 'SELECT id, email, name, role, approval_status, created_at, updated_at FROM users ORDER BY created_at DESC';
     const result = await this.executeRawQuery(query);
     return result.rows;
   }
@@ -408,27 +408,27 @@ export class PostgreSQLAdapter {
 
   async createColumn(columnData: any): Promise<any> {
     const { name, title, boardId, position, color } = columnData;
-    const columnTitle = title || name; // поддержка обоих названий
+    const columnName = title || name; // поддержка обоих названий
     const id = uuidv4();
 
     const query = `
-      INSERT INTO columns (id, title, board_id, position, color, created_at, updated_at)
+      INSERT INTO columns (id, name, board_id, position, color, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-      RETURNING *
+      RETURNING *, name as title
     `;
 
-    const result = await this.executeRawQuery(query, [id, columnTitle, boardId, position || 0, color || '#6b7280']);
+    const result = await this.executeRawQuery(query, [id, columnName, boardId, position || 0, color || '#6b7280']);
     return result.rows[0];
   }
 
   async getColumnById(id: string): Promise<any> {
-    const query = 'SELECT * FROM columns WHERE id = $1';
+    const query = 'SELECT *, name as title FROM columns WHERE id = $1';
     const result = await this.executeRawQuery(query, [id]);
     return result.rows[0] || null;
   }
 
   async getBoardColumns(boardId: string): Promise<any[]> {
-    const query = 'SELECT * FROM columns WHERE board_id = $1 ORDER BY position ASC, created_at ASC';
+    const query = 'SELECT *, name as title FROM columns WHERE board_id = $1 ORDER BY position ASC, created_at ASC';
     const result = await this.executeRawQuery(query, [boardId]);
     return result.rows;
   }
@@ -440,7 +440,9 @@ export class PostgreSQLAdapter {
 
     for (const [key, value] of Object.entries(updates)) {
       if (key !== 'id') {
-        fields.push(`${key} = $${paramIndex}`);
+        // Если обновляют title, переименовываем в name
+        const fieldName = key === 'title' ? 'name' : key;
+        fields.push(`${fieldName} = $${paramIndex}`);
         values.push(value);
         paramIndex++;
       }
@@ -457,7 +459,7 @@ export class PostgreSQLAdapter {
       UPDATE columns 
       SET ${fields.join(', ')}
       WHERE id = $${paramIndex}
-      RETURNING *
+      RETURNING *, name as title
     `;
 
     const result = await this.executeRawQuery(query, values);
@@ -492,7 +494,7 @@ export class PostgreSQLAdapter {
 
   async getTaskById(id: string): Promise<any> {
     const query = `
-      SELECT t.*, u.name as assignee_name, c.title as column_name
+      SELECT t.*, u.name as assignee_name, c.name as column_name
       FROM tasks t
       LEFT JOIN users u ON t.assignee_id = u.id
       LEFT JOIN columns c ON t.column_id = c.id
@@ -504,7 +506,7 @@ export class PostgreSQLAdapter {
 
   async getProjectTasks(projectId: string): Promise<any[]> {
     const query = `
-      SELECT t.*, u.name as assignee_name, c.title as column_name
+      SELECT t.*, u.name as assignee_name, c.name as column_name
       FROM tasks t
       LEFT JOIN users u ON t.assignee_id = u.id
       LEFT JOIN columns c ON t.column_id = c.id
@@ -547,7 +549,7 @@ export class PostgreSQLAdapter {
 
   async getBoardTasks(boardId: string): Promise<any[]> {
     const query = `
-      SELECT t.*, u.name as assignee_name, c.title as column_name
+      SELECT t.*, u.name as assignee_name, c.name as column_name
       FROM tasks t
       LEFT JOIN users u ON t.assignee_id = u.id
       LEFT JOIN columns c ON t.column_id = c.id
@@ -743,6 +745,15 @@ export class PostgreSQLAdapter {
     `;
     const result = await this.executeRawQuery(query, [projectId]);
     return result.rows;
+  }
+
+  async removeProjectMember(projectId: string, userId: string): Promise<boolean> {
+    const query = `
+      DELETE FROM project_members 
+      WHERE project_id = $1 AND user_id = $2
+    `;
+    const result = await this.executeRawQuery(query, [projectId, userId]);
+    return result.rowCount > 0;
   }
 
   async getUsersByEmails(emails: string[]): Promise<any[]> {

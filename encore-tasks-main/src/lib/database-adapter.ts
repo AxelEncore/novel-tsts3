@@ -250,6 +250,27 @@ class DatabaseAdapter {
     return result.rows;
   }
 
+  // Project member operations
+  async getProjectMembers(projectId: string): Promise<any[]> {
+    await this.ensureInitialized();
+    return this.adapter.getProjectMembers(projectId);
+  }
+
+  async addProjectMember(projectId: string, userId: string, role: string = 'member'): Promise<any> {
+    await this.ensureInitialized();
+    return this.adapter.addProjectMember(projectId, userId, role);
+  }
+
+  async removeProjectMember(projectId: string, userId: string): Promise<boolean> {
+    await this.ensureInitialized();
+    return this.adapter.removeProjectMember(projectId, userId);
+  }
+
+  async getUsersByEmails(emails: string[]): Promise<any[]> {
+    await this.ensureInitialized();
+    return this.adapter.getUsersByEmails(emails);
+  }
+
   // Raw query execution
   async executeRawQuery(query: string, params: any[] = []): Promise<any> {
     await this.ensureInitialized();

@@ -291,7 +291,7 @@ export function IconPicker({ selectedIcon, onIconSelect, className }: IconPicker
 
   const allIcons = Object.values(iconCategories).flat();
   const filteredIcons = searchTerm
-    $1 allIcons.filter(icon => 
+    ? allIcons.filter(icon => 
         icon.name.toLowerCase().includes(searchTerm.toLowerCase())
       )
     : iconCategories[activeCategory as keyof typeof iconCategories];
@@ -320,7 +320,7 @@ export function IconPicker({ selectedIcon, onIconSelect, className }: IconPicker
                 className={cn(
                   "px-3 py-1 text-sm rounded-full transition-colors",
                   activeCategory === category
-                    $1 "bg-primary-500 text-white"
+                    ? "bg-primary-500 text-white"
                     : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
                 )}
               >
@@ -340,7 +340,7 @@ export function IconPicker({ selectedIcon, onIconSelect, className }: IconPicker
             className={cn(
               "p-3 rounded-lg border transition-all hover:scale-105",
               selectedIcon === name
-                $1 "border-primary-500 bg-primary-500/20 text-primary-300"
+                ? "border-primary-500 bg-primary-500/20 text-primary-300"
                 : "border-white/10 bg-white/5 text-gray-400 hover:border-white/20 hover:text-white"
             )}
             title={name}

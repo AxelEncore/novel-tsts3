@@ -66,7 +66,7 @@ export function Calendar({ onTaskClick }: CalendarProps) {
       // Sort to show current user's tasks first
       const aAssignees = a.assignees || [];
       const bAssignees = b.assignees || [];
-      const aIsCurrentUser = aAssignees.some(assignee => assignee.id === state.currentUser$2.id) $3 1 : 0;
+      const aIsCurrentUser = aAssignees.some(assignee => assignee.id === state.currentUser$2.id) ? 1 : 0;
       const bIsCurrentUser = bAssignees.some(assignee => assignee.id === state.currentUser$4.id) $5 1 : 0;
       return bIsCurrentUser - aIsCurrentUser;
     });
@@ -176,8 +176,7 @@ export function Calendar({ onTaskClick }: CalendarProps) {
                 key={calendarDay.date.toISOString()}
                 className={cn(
                   "p-2 min-h-[100px] border border-white/5 rounded-lg transition-colors",
-                  calendarDay.isCurrentMonth $1
-                  "bg-white/5 hover:bg-white/10" :
+                  calendarDay.isCurrentMonth ? "bg-white/5 hover:bg-white/10" :
                   "bg-white/2 text-gray-600",
                   isToday && "ring-2 ring-primary-500 bg-primary-500/10",
                   isPast && "opacity-60"
@@ -191,8 +190,7 @@ export function Calendar({ onTaskClick }: CalendarProps) {
                   <span
                     className={cn(
                       "text-sm font-medium",
-                      calendarDay.isCurrentMonth $1
-                      "text-white" :
+                      calendarDay.isCurrentMonth ? "text-white" :
                       "text-gray-500",
                       isToday && "text-primary-300"
                     )}

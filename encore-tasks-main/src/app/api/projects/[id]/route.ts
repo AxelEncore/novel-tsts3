@@ -14,9 +14,17 @@ const updateProjectSchema = z.object({
   icon: z.string().min(1, 'Иконка обязательна').optional(),
   status: z.enum(['active', 'archived', 'completed']).optional(),
   visibility: z.enum(['private', 'public']).optional(),
-  telegram_chat_id: z.string().optional(),
-  telegram_topic_id: z.string().optional(),
-  settings: z.record(z.string(), z.any()).optional()
+  telegram_chat_id: z.string().optional().nullable(),
+  telegram_topic_id: z.string().optional().nullable(),
+  notification_settings: z.object({
+    enabled: z.boolean().optional(),
+    types: z.array(z.string()).optional(),
+    channels: z.array(z.enum(['email', 'telegram', 'in-app'])).optional()
+  }).optional(),
+  settings: z.record(z.string(), z.any()).optional(),
+  tags: z.array(z.string()).optional(),
+  priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+  deadline: z.string().datetime().optional().nullable()
 });
 
 // Упрощенная проверка доступа к проекту для SQLite

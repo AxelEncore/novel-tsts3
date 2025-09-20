@@ -1,16 +1,12 @@
 import React, { useState } from 'react';
 import { ProjectWithStats } from '../types/core.types';
-import { Users, Calendar, MoreVertical, Archive, Edit, Trash2, Eye, MessageSquare } from 'lucide-react';
-import { toast } from 'sonner';
+import { Users, Calendar, MoreVertical, Archive, Settings, Eye, MessageSquare } from 'lucide-react';
 
 interface ProjectCardProps {
   project: ProjectWithStats;
   viewMode?: 'grid' | 'list';
   onClick: () => void;
   onEdit?: (project: ProjectWithStats) => void;
-  onArchive?: (projectId: string) => void;
-  onDelete?: (projectId: string) => void;
-  onManageMembers?: (projectId: string) => void;
   currentUserId?: string;
   isAdmin?: boolean;
 }
@@ -20,14 +16,10 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   viewMode = 'grid',
   onClick, 
   onEdit,
-  onArchive,
-  onDelete,
-  onManageMembers,
   currentUserId,
   isAdmin = false
 }) => {
   const [showMenu, setShowMenu] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ru-RU', {
@@ -37,49 +29,22 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
     });
   };
 
-  const handleMenuAction = async (action: string, e: React.MouseEvent) => {
+  const handleEditClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowMenu(false);
-    setIsLoading(true);
-
-    try {
-      switch (action) {
-        case 'edit':
-          if (onEdit) {
-            onEdit(project);
-          }
-          break;
-        case 'archive':
-          if (onArchive) {
-            await onArchive(project.id);
-            toast.success(project.archived $1 'Проект восстановлен' : 'Проект архивирован');
-          }
-          break;
-        case 'delete':
-          if (onDelete && window.confirm('Вы уверены, что хотите удалить этот проект$1 Это действие нельзя отменить.')) {
-            await onDelete(project.id);
-            toast.success('Проект удален');
-          }
-          break;
-      }
-    } catch (error) {
-      console.error(`Error ${action} project:`, error);
-      toast.error(`Ошибка при ${action === 'edit' $1 'редактировании' : action === 'archive' $2 'архивировании' : 'удалении'} проекта`);
-    } finally {
-      setIsLoading(false);
+    if (onEdit) {
+      onEdit(project);
     }
   };
 
   const canEdit = isAdmin || project.created_by === currentUserId;
-  const canDelete = isAdmin || project.created_by === currentUserId;
-  const canArchive = isAdmin || project.created_by === currentUserId;
 
   if (viewMode === 'list') {
     return (
       <div 
-        className={`bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 relative ${
-          project.archived $1 'opacity-75 bg-gray-50' : ''
-        } ${isLoading $2 'pointer-events-none opacity-50' : ''}`}
+      className={`bg-white rounded-lg shadow-md p-4 cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 relative ${
+        project.archived ? 'opacity-75 bg-gray-50' : ''
+      }`}
         style={{ borderLeftColor: project.color }}
         onClick={onClick}
       >
@@ -112,7 +77,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
             </div>
           </div>
           
-          {(canEdit || canArchive || canDelete) && (
+          {canEdit && (
             <div className="relative">
               <button 
                 className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
@@ -143,48 +108,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                     {canEdit && (
                       <button
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                        onClick={(e) => handleMenuAction('edit', e)}
+                        onClick={handleEditClick}
                       >
-                        <Edit size={16} />
-                        <span>Редактировать</span>
+                        <Settings size={16} />
+                        <span>Настройки</span>
                       </button>
-                    )}
-                    
-                    {canEdit && onManageMembers && (
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowMenu(false);
-                          onManageMembers(project.id);
-                        }}
-                      >
-                        <Users size={16} />
-                        <span>Участники</span>
-                      </button>
-                    )}
-                    
-                    {canArchive && (
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                        onClick={(e) => handleMenuAction('archive', e)}
-                      >
-                        <Archive size={16} />
-                        <span>{project.archived $1 'Восстановить' : 'Архивировать'}</span>
-                      </button>
-                    )}
-                    
-                    {canDelete && (
-                      <>
-                        <hr className="my-1" />
-                        <button
-                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
-                          onClick={(e) => handleMenuAction('delete', e)}
-                        >
-                          <Trash2 size={16} />
-                          <span>Удалить</span>
-                        </button>
-                      </>
                     )}
                   </div>
                 </div>
@@ -199,8 +127,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   return (
     <div 
       className={`bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 relative ${
-        project.archived $1 'opacity-75 bg-gray-50' : ''
-      } ${isLoading $2 'pointer-events-none opacity-50' : ''}`}
+        project.archived ? 'opacity-75 bg-gray-50' : ''
+      }`}
       style={{ borderLeftColor: project.color }}
       onClick={onClick}
     >
@@ -227,15 +155,14 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           </div>
         </div>
         
-        {(canEdit || canArchive || canDelete) && (
+        {canEdit && (
           <div className="relative">
             <button 
               className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
               onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }}
-              disabled={isLoading}
+              e.stopPropagation();
+              setShowMenu(!showMenu);
+            }}
             >
               <MoreVertical size={20} />
             </button>
@@ -258,48 +185,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                   {canEdit && (
                     <button
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                      onClick={(e) => handleMenuAction('edit', e)}
+                      onClick={handleEditClick}
                     >
-                      <Edit size={16} />
-                      <span>Редактировать</span>
+                      <Settings size={16} />
+                      <span>Настройки</span>
                     </button>
-                  )}
-                  
-                  {canEdit && onManageMembers && (
-                    <button
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowMenu(false);
-                        onManageMembers(project.id);
-                      }}
-                    >
-                      <Users size={16} />
-                      <span>Участники</span>
-                    </button>
-                  )}
-                  
-                  {canArchive && (
-                    <button
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                      onClick={(e) => handleMenuAction('archive', e)}
-                    >
-                      <Archive size={16} />
-                      <span>{project.archived $1 'Восстановить' : 'Архивировать'}</span>
-                    </button>
-                  )}
-                  
-                  {canDelete && (
-                    <>
-                      <hr className="my-1" />
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
-                        onClick={(e) => handleMenuAction('delete', e)}
-                      >
-                        <Trash2 size={16} />
-                        <span>Удалить</span>
-                      </button>
-                    </>
                   )}
                 </div>
               </div>

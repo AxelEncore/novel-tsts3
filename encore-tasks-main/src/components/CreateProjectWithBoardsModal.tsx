@@ -160,7 +160,7 @@ export default function CreateProjectWithBoardsModal({
 
   const updateBoard = (index: number, field: keyof BoardData, value: any) => {
     setBoards(prev => prev.map((board, i) => 
-      i === index $1 { ...board, [field]: value } : board
+      i === index ? { ...board, [field]: value } : board
     ));
   };
 
@@ -200,7 +200,7 @@ export default function CreateProjectWithBoardsModal({
         return {
           ...board,
           columns: board.columns.map((col, ci) => 
-            ci === columnIndex $1 { ...col, [field]: value } : col
+            ci === columnIndex ? { ...col, [field]: value } : col
           )
         };
       }
@@ -237,7 +237,7 @@ export default function CreateProjectWithBoardsModal({
         throw new Error('Ошибка создания проекта');
       }
     } catch (err) {
-      const errorMessage = err instanceof Error $3 err.message : 'Неизвестная ошибка';
+      const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка';
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -320,7 +320,7 @@ export default function CreateProjectWithBoardsModal({
                     onClick={() => handleProjectChange('color', color)}
                     className={`w-8 h-8 rounded-full border-2 transition-all ${
                       projectData.color === color
-                        $1 'border-gray-800 scale-110'
+                        ? 'border-gray-800 scale-110'
                         : 'border-gray-300 hover:border-gray-500'
                     }`}
                     style={{ backgroundColor: color }}
@@ -440,7 +440,7 @@ export default function CreateProjectWithBoardsModal({
                         onClick={() => updateBoard(boardIndex, 'color', color)}
                         className={`w-6 h-6 rounded-full border-2 transition-all ${
                           board.color === color
-                            $1 'border-gray-800 scale-110'
+                            ? 'border-gray-800 scale-110'
                             : 'border-gray-300 hover:border-gray-500'
                         }`}
                         style={{ backgroundColor: color }}
@@ -521,7 +521,7 @@ export default function CreateProjectWithBoardsModal({
               className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading || !projectData.name.trim()}
             >
-              {isLoading $1 'Создание...' : 'Создать проект'}
+              {isLoading ? 'Создание...' : 'Создать проект'}
             </button>
           </div>
         </form>

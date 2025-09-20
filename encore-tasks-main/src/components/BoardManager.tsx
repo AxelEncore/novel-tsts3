@@ -3,10 +3,12 @@
 import React, { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { Board } from "@/types";
-import { Plus, Edit2, Trash2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Settings } from "lucide-react";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import { CreateBoardModalSimple } from "./CreateBoardModalSimple";
+import ProjectSettingsModalDark from "./ProjectSettingsModalDark";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 interface BoardManagerProps {
   isOpen: boolean;
@@ -19,6 +21,7 @@ function BoardManager({ isOpen, onClose }: BoardManagerProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [boardToDelete, setBoardToDelete] = useState<Board | null>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Получаем информацию о текущем пользователе
   const currentUser = state.currentUser;
@@ -92,6 +95,18 @@ function BoardManager({ isOpen, onClose }: BoardManagerProps) {
     }
   };
 
+  const handleProjectUpdated = (updatedProject: any) => {
+    dispatch({ type: "UPDATE_PROJECT", payload: updatedProject });
+    toast.success('Проект успешно обновлен!');
+  };
+
+  const handleProjectDeleted = (projectId: string) => {
+    dispatch({ type: "DELETE_PROJECT", payload: projectId });
+    setShowSettingsModal(false);
+    onClose();
+    toast.success('Проект успешно удален!');
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="w-full max-w-2xl bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden">
@@ -109,15 +124,27 @@ function BoardManager({ isOpen, onClose }: BoardManagerProps) {
         </div>
 
         <div className="p-6">
-          {/* Create new board - только для админов и владельцев проекта */}
+          {/* Action buttons - только для админов и владельцев проекта */}
           {(isAdmin || isProjectOwner) && (
-            <div className="mb-6">
+            <div className="mb-6 flex gap-3">
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Создать новую доску
+              </button>
+              <button
+                onClick={() => {
+                  console.log('Settings button clicked!');
+                  console.log('Current showSettingsModal:', showSettingsModal);
+                  console.log('Current selectedProject:', state.selectedProject);
+                  setShowSettingsModal(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                Настройки проекта
               </button>
             </div>
           )}
@@ -223,6 +250,24 @@ function BoardManager({ isOpen, onClose }: BoardManagerProps) {
         onSave={handleCreateBoard}
         projectId={state.selectedProject!.id}
       />
+      
+      {console.log('Rendering settings modal area:', { 
+        hasProject: !!state.selectedProject,
+        showSettingsModal,
+        projectName: state.selectedProject?.name 
+      })}
+      {state.selectedProject && (
+        <ProjectSettingsModalDark
+          isOpen={showSettingsModal}
+          onClose={() => {
+            console.log('Closing settings modal');
+            setShowSettingsModal(false);
+          }}
+          project={state.selectedProject}
+          onProjectUpdated={handleProjectUpdated}
+          onProjectDeleted={handleProjectDeleted}
+        />
+      )}
     </div>
   );
 }

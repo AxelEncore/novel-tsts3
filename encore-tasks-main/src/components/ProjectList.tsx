@@ -5,7 +5,7 @@ import { ProjectWithStats, ProjectFilters, ProjectSort } from '../types/core.typ
 import ProjectCard from './ProjectCard';
 import CreateProjectModal from './CreateProjectModal';
 import CreateProjectWithBoardsModal from './CreateProjectWithBoardsModal';
-import { ProjectMembersModal } from './ProjectMembersModal';
+import ProjectSettingsModal from './ProjectSettingsModal';
 import { toast } from 'sonner';
 
 interface ProjectListProps {
@@ -23,8 +23,8 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCreateWithBoardsModal, setShowCreateWithBoardsModal] = useState(false);
-  const [showMembersModal, setShowMembersModal] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<ProjectWithStats | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -33,7 +33,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
     if (!currentUser) return;
 
     try {
-      const currentPage = reset $1 1 : page;
+      const currentPage = reset ? 1 : page;
       const filters: ProjectFilters = {
         search: searchTerm.trim() || undefined,
         archived: showArchived,
@@ -96,7 +96,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
   const handleProjectUpdated = (updatedProject: ProjectWithStats) => {
     setProjects(prev => 
       prev.map(project => 
-        project.id === updatedProject.id $1 updatedProject : project
+        project.id === updatedProject.id ? updatedProject : project
       )
     );
     toast.success('Проект успешно обновлен!');
@@ -108,25 +108,14 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
     toast.success('Проект успешно удален!');
   };
 
-  const handleProjectArchived = (projectId: string, archived: boolean) => {
-    setProjects(prev => 
-      prev.map(project => 
-        project.id === projectId 
-          $1 { ...project, archived, archived_at: archived $2 new Date().toISOString() : null }
-          : project
-      )
-    );
-    toast.success(archived $3 'Проект архивирован!' : 'Проект восстановлен!');
-  };
-
-  const handleManageMembers = (projectId: string) => {
-    setSelectedProjectId(projectId);
-    setShowMembersModal(true);
+  const handleEditProject = (project: ProjectWithStats) => {
+    setSelectedProject(project);
+    setShowSettingsModal(true);
   };
 
   const handleSortChange = (newSortBy: ProjectSort) => {
     if (newSortBy === sortBy) {
-      setSortOrder(prev => prev === 'asc' $1 'desc' : 'asc');
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortBy(newSortBy);
       setSortOrder('desc');
@@ -154,7 +143,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Проекты</h1>
           <p className="text-gray-600 mt-1">
-            {totalCount} {totalCount === 1 $1 'проект' : totalCount < 5 $2 'проекта' : 'проектов'}
+            {totalCount} {totalCount === 1 ? 'проект' : totalCount < 5 ? 'проекта' : 'проектов'}
           </p>
         </div>
         <div className="flex gap-2">
@@ -195,12 +184,12 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
             onClick={() => setShowArchived(!showArchived)}
             className={`px-4 py-2 rounded-lg border transition-colors flex items-center space-x-2 ${
               showArchived
-                $1 'bg-orange-100 border-orange-300 text-orange-700'
+                ? 'bg-orange-100 border-orange-300 text-orange-700'
                 : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            {showArchived $1 <ArchiveRestore size={16} /> : <Archive size={16} />}
-            <span>{showArchived $2 'Архивные' : 'Активные'}</span>
+            {showArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
+            <span>{showArchived ? 'Архивные' : 'Активные'}</span>
           </button>
 
           {/* Режим отображения */}
@@ -209,7 +198,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
               onClick={() => setViewMode('grid')}
               className={`px-3 py-2 transition-colors ${
                 viewMode === 'grid'
-                  $1 'bg-blue-600 text-white'
+                  ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-50'
               }`}
             >
@@ -219,7 +208,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
               onClick={() => setViewMode('list')}
               className={`px-3 py-2 transition-colors ${
                 viewMode === 'list'
-                  $1 'bg-blue-600 text-white'
+                  ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-50'
               }`}
             >
@@ -247,13 +236,13 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
               onClick={() => handleSortChange(key)}
               className={`px-3 py-1 rounded-full text-sm transition-colors flex items-center space-x-1 ${
                 sortBy === key
-                  $1 'bg-blue-600 text-white'
+                  ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               <span>{label}</span>
               {sortBy === key && (
-                sortOrder === 'asc' $1 <SortAsc size={12} /> : <SortDesc size={12} />
+                sortOrder === 'asc' ? <SortAsc size={12} /> : <SortDesc size={12} />
               )}
             </button>
           ))}
@@ -261,17 +250,17 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
       </div>
 
       {/* Список проектов */}
-      {projects.length === 0 $2 (
+      {projects.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-gray-400 mb-4">
             <Archive size={48} className="mx-auto" />
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {showArchived $1 'Нет архивных проектов' : 'Нет активных проектов'}
+            {showArchived ? 'Нет архивных проектов' : 'Нет активных проектов'}
           </h3>
           <p className="text-gray-600 mb-4">
             {showArchived 
-              $1 'Архивные проекты появятся здесь после архивирования.'
+              ? 'Архивные проекты появятся здесь после архивирования.'
               : 'Создайте свой первый проект, чтобы начать работу.'
             }
           </p>
@@ -296,7 +285,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
         <>
           <div className={`${
             viewMode === 'grid'
-              $1 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
               : 'space-y-4'
           }`}>
             {projects.map(project => (
@@ -305,10 +294,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
                 project={project}
                 viewMode={viewMode}
                 onClick={() => onProjectSelect(project)}
-                onEdit={handleProjectUpdated}
-                onDelete={handleProjectDeleted}
-                onArchive={handleProjectArchived}
-                onManageMembers={handleManageMembers}
+                onEdit={handleEditProject}
                 currentUserId={currentUser?.id}
                 isAdmin={currentUser?.role === 'admin'}
               />
@@ -323,7 +309,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
                 disabled={loading}
                 className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {loading $1 'Загрузка...' : 'Загрузить еще'}
+                {loading ? 'Загрузка...' : 'Загрузить еще'}
               </button>
             </div>
           )}
@@ -343,15 +329,25 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
         onProjectCreated={handleProjectCreated}
       />
       
-      {/* Модальное окно управления участниками */}
-      {selectedProjectId && (
-        <ProjectMembersModal
-          isOpen={showMembersModal}
+      {/* Модальное окно настроек проекта */}
+      {selectedProject && (
+        <ProjectSettingsModal
+          isOpen={showSettingsModal}
           onClose={() => {
-            setShowMembersModal(false);
-            setSelectedProjectId(null);
+            setShowSettingsModal(false);
+            setSelectedProject(null);
           }}
-          projectId={selectedProjectId}
+          project={selectedProject}
+          onProjectUpdated={(updatedProject) => {
+            handleProjectUpdated(updatedProject);
+            setShowSettingsModal(false);
+            setSelectedProject(null);
+          }}
+          onProjectDeleted={(deletedId) => {
+            handleProjectDeleted(deletedId);
+            setShowSettingsModal(false);
+            setSelectedProject(null);
+          }}
         />
       )}
     </div>
