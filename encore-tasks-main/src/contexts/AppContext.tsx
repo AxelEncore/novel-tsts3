@@ -200,7 +200,7 @@ const convertApiUserToUser = (apiUser: ApiUser): User => ({
   name: apiUser.name,
   email: apiUser.email,
   role: apiUser.role,
-  isApproved: apiUser.approval_status === 'approved' || apiUser.role === 'admin',
+  isApproved: apiUser.status === 'active' || apiUser.approval_status === 'approved' || apiUser.role === 'admin',
   created_at: apiUser.createdAt,
   updated_at: apiUser.updatedAt,
   avatar: apiUser.avatar

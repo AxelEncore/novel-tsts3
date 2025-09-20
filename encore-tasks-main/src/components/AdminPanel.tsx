@@ -24,7 +24,12 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
 
   const handleApproveUser = async (userId: string) => {
     try {
-      const success = await updateUser(userId, { role: user.role, status: 'approved' });
+      const user = state.users.find(u => u.id === userId);
+      if (!user) {
+        console.error('Пользователь не найден');
+        return;
+      }
+      const success = await updateUser(userId, { role: user.role || 'user', status: 'approved' });
       if (success) {
         dispatch({ type: 'APPROVE_USER', payload: userId });
       } else {
@@ -66,6 +71,11 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
 
   const handlePromoteToManager = async (userId: string) => {
     try {
+      const user = state.users.find(u => u.id === userId);
+      if (!user) {
+        console.error('Пользователь не найден');
+        return;
+      }
       const success = await updateUser(userId, { role: 'manager', status: user.isApproved ? 'approved' : 'pending' });
       if (!success) {
         console.error('Ошибка назначения менеджера');
@@ -77,6 +87,11 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
 
   const handleDemoteFromManager = async (userId: string) => {
     try {
+      const user = state.users.find(u => u.id === userId);
+      if (!user) {
+        console.error('Пользователь не найден');
+        return;
+      }
       const success = await updateUser(userId, { role: 'user', status: user.isApproved ? 'approved' : 'pending' });
       if (!success) {
         console.error('Ошибка снятия роли администратора');

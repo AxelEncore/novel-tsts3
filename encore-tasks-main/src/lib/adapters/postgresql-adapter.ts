@@ -125,25 +125,43 @@ export class PostgreSQLAdapter {
     const id = uuidv4();
 
     const query = `
-      INSERT INTO users (id, email, password_hash, name, role, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-      RETURNING id, email, name, role, created_at, updated_at
+      INSERT INTO users (id, email, password_hash, name, role, approval_status, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+      RETURNING id, email, name, role, approval_status, created_at, updated_at
     `;
 
-    const result = await this.executeRawQuery(query, [id, email, hashedPassword, name, role]);
-    return result.rows[0];
+    const result = await this.executeRawQuery(query, [id, email, hashedPassword, name, role, 'pending']);
+    const user = result.rows[0];
+    
+    if (user) {
+      user.is_approved = user.approval_status === 'approved';
+    }
+    
+    return user;
   }
 
   async getUserById(id: string): Promise<any> {
-    const query = 'SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = $1';
+    const query = 'SELECT id, email, name, role, approval_status, created_at, updated_at FROM users WHERE id = $1';
     const result = await this.executeRawQuery(query, [id]);
-    return result.rows[0] || null;
+    const user = result.rows[0];
+    
+    if (user) {
+      user.is_approved = user.approval_status === 'approved';
+    }
+    
+    return user || null;
   }
 
   async getUserByEmail(email: string): Promise<any> {
     const query = 'SELECT * FROM users WHERE email = $1';
     const result = await this.executeRawQuery(query, [email]);
-    return result.rows[0] || null;
+    const user = result.rows[0];
+    
+    if (user) {
+      user.is_approved = user.approval_status === 'approved';
+    }
+    
+    return user || null;
   }
 
   async updateUser(id: string, userData: Partial<any>): Promise<any> {
@@ -155,11 +173,18 @@ export class PostgreSQLAdapter {
       if (key === 'password') {
         fields.push(`password_hash = $${paramIndex}`);
         values.push(await bcrypt.hash(value as string, 12));
+        paramIndex++;
+      } else if (key === 'is_approved') {
+        // Map is_approved to approval_status in database
+        fields.push(`approval_status = $${paramIndex}`);
+        const statusValue = value ? 'approved' : 'rejected';
+        values.push(statusValue);
+        paramIndex++;
       } else if (key !== 'id') {
         fields.push(`${key} = $${paramIndex}`);
         values.push(value);
+        paramIndex++;
       }
-      paramIndex++;
     }
 
     if (fields.length === 0) {
@@ -173,11 +198,18 @@ export class PostgreSQLAdapter {
       UPDATE users 
       SET ${fields.join(', ')}
       WHERE id = $${paramIndex}
-      RETURNING id, email, name, role, created_at, updated_at
+      RETURNING id, email, name, role, approval_status, created_at, updated_at
     `;
 
     const result = await this.executeRawQuery(query, values);
-    return result.rows[0];
+    const user = result.rows[0];
+    
+    // Map approval_status back to is_approved for consistency
+    if (user) {
+      user.is_approved = user.approval_status === 'approved';
+    }
+    
+    return user;
   }
 
   async deleteUser(id: string): Promise<boolean> {
@@ -189,7 +221,14 @@ export class PostgreSQLAdapter {
   async getAllUsers(): Promise<any[]> {
     const query = 'SELECT id, email, name, role, approval_status, created_at, updated_at FROM users ORDER BY created_at DESC';
     const result = await this.executeRawQuery(query);
-    return result.rows;
+    
+    // Map approval_status to is_approved for each user
+    const users = result.rows.map(user => ({
+      ...user,
+      is_approved: user.approval_status === 'approved'
+    }));
+    
+    return users;
   }
 
   // =====================================================
@@ -216,13 +255,19 @@ export class PostgreSQLAdapter {
 
   async getSessionByToken(token: string): Promise<any> {
     const query = `
-      SELECT s.*, u.id as user_id, u.email, u.name, u.role
+      SELECT s.*, u.id as user_id, u.email, u.name, u.role, u.approval_status
       FROM sessions s
       JOIN users u ON s.user_id = u.id
       WHERE s.token = $1 AND s.expires_at > NOW()
     `;
     const result = await this.executeRawQuery(query, [token]);
-    return result.rows[0] || null;
+    const session = result.rows[0];
+    
+    if (session) {
+      session.is_approved = session.approval_status === 'approved';
+    }
+    
+    return session || null;
   }
 
   async deleteSession(token: string): Promise<boolean> {
