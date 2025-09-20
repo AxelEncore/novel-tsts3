@@ -20,6 +20,25 @@ export async function GET(request: NextRequest) {
     }
 
     const { userId } = authResult.user!;
+
+    // Dev fallback: return user info directly from JWT without DB
+    if (process.env.AUTH_JWT_ONLY === 'true') {
+      const jwtUser = authResult.user!;
+      const userResult = {
+        id: userId,
+        name: jwtUser.name || 'User',
+        email: jwtUser.email,
+        role: jwtUser.role || 'user',
+        status: 'active',
+        avatar: null,
+        createdAt: null,
+        updatedAt: null
+      };
+      const response = NextResponse.json({ user: userResult });
+      response.headers.set('Cache-Control', 'no-store');
+      return response;
+    }
+
     console.log('API /auth/me: Getting user by ID:', userId);
     const user = await databaseAdapter.getUserById(userId);
     console.log('API /auth/me: User found:', user ? 'yes' : 'no');

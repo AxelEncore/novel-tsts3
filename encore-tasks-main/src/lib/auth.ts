@@ -53,7 +53,25 @@ export async function verifyAuth(request: NextRequest): Promise<AuthResult> {
 
     // Проверяем сессию в базе данных
     console.log('🔍 Checking session in database...');
-    await databaseAdapter.initialize();
+    try {
+      await databaseAdapter.initialize();
+    } catch (dbInitError: any) {
+      console.error('❌ Database init failed:', dbInitError);
+      // Dev fallback: allow JWT-only auth when explicitly enabled
+      if (process.env.AUTH_JWT_ONLY === 'true') {
+        console.warn('⚠️ AUTH_JWT_ONLY enabled - proceeding with JWT-only auth without DB session check');
+        return {
+          success: true,
+          user: {
+            userId: String((decoded as any).userId),
+            email: (decoded as any).email || 'unknown@example.com',
+            role: (decoded as any).role || 'user',
+            name: (decoded as any).name || ((decoded as any).email?.split?.('@')?.[0] || 'User')
+          }
+        };
+      }
+      throw dbInitError;
+    }
 
     try {
         // Ищем сессию через адаптер

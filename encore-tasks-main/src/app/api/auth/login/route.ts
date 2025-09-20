@@ -17,8 +17,52 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Development fallback: JWT-only auth without DB
+    if (process.env.AUTH_JWT_ONLY === 'true') {
+      const devEmail = process.env.DEV_LOGIN_EMAIL;
+      const devPassword = process.env.DEV_LOGIN_PASSWORD;
+      const devRole = process.env.DEV_LOGIN_ROLE || 'admin';
+      const devName = process.env.DEV_LOGIN_NAME || 'Dev User';
+
+      if (devEmail && devPassword && email === devEmail && password === devPassword) {
+        const sessionToken = jwt.sign(
+          { userId: 'dev-user', email: devEmail, role: devRole, name: devName, timestamp: Date.now() },
+          JWT_SECRET,
+          { expiresIn: '7d' }
+        );
+
+        const response = NextResponse.json({
+          message: 'Успешная авторизация (dev mode)',
+          user: { id: 'dev-user', name: devName, email: devEmail, role: devRole, status: 'active', avatar: null, createdAt: null, updatedAt: null },
+          token: sessionToken
+        });
+
+        response.cookies.set('auth-token', sessionToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+        response.cookies.set('auth-token-client', sessionToken, {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
+        return response;
+      }
+
+      return NextResponse.json(
+        { error: 'Неверный email или пароль (dev mode)' },
+        { status: 401 }
+      );
+    }
     
-    // Поиск пользователя по email
+    // Поиск пользователя по email (DB mode)
     console.log('🔍 Looking up user by email:', email);
     const user = await databaseAdapter.getUserByEmail(email);
     console.log('👤 User found:', user ? 'YES' : 'NO');
