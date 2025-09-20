@@ -17,17 +17,20 @@ const updateMemberSchema = z.object({
 });
 
 // Проверка доступа к проекту
-async function checkProjectAccess(projectId: string, userId: string): Promise<{ hasAccess: boolean; isOwner: boolean }> {
+async function checkProjectAccess(projectId: string, userId: string, userRole?: string): Promise<{ hasAccess: boolean; isOwner: boolean; isAdmin: boolean }> {
   try {
     const project = await databaseAdapter.getProjectById(projectId);
     if (!project) {
-      return { hasAccess: false, isOwner: false };
+      return { hasAccess: false, isOwner: false, isAdmin: false };
     }
     
     const isOwner = project.created_by === userId || project.creator_id === userId;
-    return { hasAccess: isOwner, isOwner };
+    const isAdmin = userRole === 'admin';
+    const hasAccess = isOwner || isAdmin;
+    
+    return { hasAccess, isOwner, isAdmin };
   } catch (error) {
-    return { hasAccess: false, isOwner: false };
+    return { hasAccess: false, isOwner: false, isAdmin: false };
   }
 }
 
@@ -48,12 +51,13 @@ export async function GET(
     const { id: projectId } = await params;
     await databaseAdapter.initialize();
 
-    // Проверяем доступ к проекту
-    const accessCheck = await checkProjectAccess(projectId, authResult.user.userId);
-    if (!accessCheck.hasAccess) {
+    // Проверяем доступ к проекту - для чтения доступ есть у всех авторизованных пользователей
+    // Но мы всё равно проверяем существование проекта
+    const project = await databaseAdapter.getProjectById(projectId);
+    if (!project) {
       return NextResponse.json(
-        { success: false, error: 'Access denied' },
-        { status: 403 }
+        { success: false, error: 'Project not found' },
+        { status: 404 }
       );
     }
 
@@ -62,9 +66,9 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
+      members: members || [],
       data: members
     });
-
   } catch (error) {
     console.error('Error fetching project members:', error);
     return NextResponse.json(
@@ -91,11 +95,11 @@ export async function POST(
     const { id: projectId } = await params;
     await databaseAdapter.initialize();
 
-    // Проверяем доступ к проекту (только владельцы могут добавлять участников)
-    const accessCheck = await checkProjectAccess(projectId, authResult.user.userId);
+    // Проверяем доступ к проекту (владельцы и админы могут добавлять участников)
+    const accessCheck = await checkProjectAccess(projectId, authResult.user.userId, authResult.user.role);
     if (!accessCheck.hasAccess) {
       return NextResponse.json(
-        { success: false, error: 'Access denied' },
+        { success: false, error: 'Access denied - only project owners and admins can add members' },
         { status: 403 }
       );
     }
@@ -181,11 +185,11 @@ export async function DELETE(
 
     await databaseAdapter.initialize();
 
-    // Проверяем доступ к проекту (только владельцы могут удалять участников)
-    const accessCheck = await checkProjectAccess(projectId, authResult.user.userId);
+    // Проверяем доступ к проекту (владельцы и админы могут удалять участников)
+    const accessCheck = await checkProjectAccess(projectId, authResult.user.userId, authResult.user.role);
     if (!accessCheck.hasAccess) {
       return NextResponse.json(
-        { success: false, error: 'Access denied' },
+        { success: false, error: 'Access denied - only project owners and admins can remove members' },
         { status: 403 }
       );
     }

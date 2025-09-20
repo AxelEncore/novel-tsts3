@@ -808,6 +808,17 @@ export class PostgreSQLAdapter {
     return result.rowCount > 0;
   }
 
+  async updateProjectMemberRole(projectId: string, userId: string, role: string): Promise<boolean> {
+    const query = `
+      UPDATE project_members 
+      SET role = $3
+      WHERE project_id = $1 AND user_id = $2
+      RETURNING *
+    `;
+    const result = await this.executeRawQuery(query, [projectId, userId, role]);
+    return result.rowCount > 0;
+  }
+
   async getUsersByEmails(emails: string[]): Promise<any[]> {
     if (emails.length === 0) return [];
     

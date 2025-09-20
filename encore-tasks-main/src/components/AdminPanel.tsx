@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { User, Project } from "@/types";
 import { Users, Check, X, Clock, Mail, Calendar, Shield, UserPlus, ArrowLeft, Plus, Minus, Briefcase, Crown, UserCheck } from "lucide-react";
@@ -16,11 +16,47 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [deleteAction, setDeleteAction] = useState<'reject' | 'remove'>('reject');
+  const [userProjectsMap, setUserProjectsMap] = useState<Record<string, string[]>>({});
+  const [loadingProjects, setLoadingProjects] = useState(false);
 
   // Filter users based on approval status
   const pendingUsers = state.users.filter(user => !user.isApproved && user.role !== 'admin');
   const approvedUsers = state.users.filter(user => user.isApproved && user.role !== 'admin');
   const newUserNotifications = state.pendingUserNotifications || [];
+
+  // Загрузка информации о проектах пользователей
+  useEffect(() => {
+    const loadUserProjects = async () => {
+      if (state.projects.length === 0) return;
+      
+      setLoadingProjects(true);
+      const projectsMap: Record<string, string[]> = {};
+      
+      try {
+        for (const project of state.projects) {
+          const response = await fetch(`/api/projects/${project.id}/members`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.members) {
+              data.members.forEach((member: any) => {
+                if (!projectsMap[member.user_id]) {
+                  projectsMap[member.user_id] = [];
+                }
+                projectsMap[member.user_id].push(project.id);
+              });
+            }
+          }
+        }
+        setUserProjectsMap(projectsMap);
+      } catch (error) {
+        console.error('Ошибка загрузки проектов пользователей:', error);
+      } finally {
+        setLoadingProjects(false);
+      }
+    };
+    
+    loadUserProjects();
+  }, [state.projects]);
 
   const handleApproveUser = async (userId: string) => {
     try {
@@ -112,8 +148,15 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
       });
       
       if (response.ok) {
-        // Обновляем состояние или перезагружаем данные
+        // Обновляем локальное состояние
+        setUserProjectsMap(prev => ({
+          ...prev,
+          [userId]: [...(prev[userId] || []), projectId]
+        }));
         console.log('Пользователь добавлен в проект');
+      } else {
+        const error = await response.json();
+        console.error('Ошибка добавления пользователя в проект:', error);
       }
     } catch (error) {
       console.error('Ошибка добавления пользователя в проект:', error);
@@ -127,8 +170,15 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
       });
       
       if (response.ok) {
-        // Обновляем состояние или перезагружаем данные
+        // Обновляем локальное состояние
+        setUserProjectsMap(prev => ({
+          ...prev,
+          [userId]: (prev[userId] || []).filter(id => id !== projectId)
+        }));
         console.log('Пользователь удален из проекта');
+      } else {
+        const error = await response.json();
+        console.error('Ошибка удаления пользователя из проекта:', error);
       }
     } catch (error) {
       console.error('Ошибка удаления пользователя из проекта:', error);
@@ -146,8 +196,9 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
   };
 
   const UserCard = ({ user, isPending }: { user: User; isPending: boolean }) => {
-    const userProjects: Project[] = []; // TODO: Загружать из API project_members
-    const availableProjects = state.projects; // TODO: Фильтровать по участию пользователя
+    const userProjectIds = userProjectsMap[user.id] || [];
+    const userProjects = state.projects.filter(p => userProjectIds.includes(p.id));
+    const availableProjects = state.projects.filter(p => !userProjectIds.includes(p.id));
     
     return (
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6 hover:bg-white/10 transition-all duration-200">
@@ -171,9 +222,9 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
                 <span>Роль: {user.role === 'manager' ? 'Менеджер' : 'Пользователь'}</span>
               </div>
               <div className="flex items-center gap-2 text-gray-400 text-sm mt-1">
-              <Briefcase className="w-4 h-4" />
-              <span>Проекты: Загрузка...</span>
-            </div>
+                <Briefcase className="w-4 h-4" />
+                <span>Проекты: {loadingProjects ? 'Загрузка...' : userProjects.length > 0 ? userProjects.map(p => p.name).join(', ') : 'Нет проектов'}</span>
+              </div>
             </div>
           </div>
           
@@ -267,7 +318,7 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
             )}
             
             {/* Available Projects */}
-            {availableProjects.length > 0 && (
+            {availableProjects.length > 0 ? (
               <div>
                 <p className="text-xs text-gray-400 mb-2">Добавить в проект:</p>
                 <div className="flex flex-wrap gap-2">
@@ -285,9 +336,11 @@ export function AdminPanel({ onNavigate }: AdminPanelProps) {
                   ))}
                 </div>
               </div>
+            ) : (
+              userProjects.length === 0 && (
+                <p className="text-xs text-gray-400 italic">Нет доступных проектов</p>
+              )
             )}
-            
-            <p className="text-xs text-gray-500">Управление проектами временно недоступно</p>
           </div>
         )}
       </div>
