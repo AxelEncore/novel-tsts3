@@ -6,7 +6,7 @@ import { Board } from "@/types";
 import { Plus, Edit2, Trash2, Settings } from "lucide-react";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import { CreateBoardModalSimple } from "./CreateBoardModalSimple";
-import ProjectSettingsModalDark from "./ProjectSettingsModalDark";
+import ProjectSettingsModal from './ProjectSettingsModalNew';
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -257,7 +257,7 @@ function BoardManager({ isOpen, onClose }: BoardManagerProps) {
         projectName: state.selectedProject?.name 
       })}
       {state.selectedProject && (
-        <ProjectSettingsModalDark
+        <ProjectSettingsModal
           isOpen={showSettingsModal}
           onClose={() => {
             console.log('Closing settings modal');

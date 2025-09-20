@@ -295,9 +295,16 @@ export class PostgreSQLAdapter {
     const values = [];
     let paramIndex = 1;
 
+    // Map fields to database column names
+    const fieldMapping: { [key: string]: string } = {
+      icon_url: 'icon',
+      created_by: 'creator_id'
+    };
+
     for (const [key, value] of Object.entries(projectData)) {
-      if (key !== 'id') {
-        fields.push(`${key} = $${paramIndex}`);
+      if (key !== 'id' && value !== undefined) {
+        const dbField = fieldMapping[key] || key;
+        fields.push(`${dbField} = $${paramIndex}`);
         values.push(value);
         paramIndex++;
       }

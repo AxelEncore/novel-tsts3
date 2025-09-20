@@ -9,9 +9,9 @@ import { UpdateProjectDto, ProjectWithStats } from '@/types/core.types';
 // Схема валидации для обновления проекта
 const updateProjectSchema = z.object({
   name: z.string().min(1, 'Название проекта обязательно').max(100, 'Название слишком длинное').optional(),
-  description: z.string().max(500, 'Описание слишком длинное').optional(),
-  color: z.string().regex(/^#[0-9A-F]{6}$/i, 'Неверный формат цвета').optional(),
-  icon: z.string().min(1, 'Иконка обязательна').optional(),
+  description: z.string().max(500, 'Описание слишком длинное').optional().nullable(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/i, 'Неверный формат цвета').optional(),
+  icon: z.string().optional(),
   status: z.enum(['active', 'archived', 'completed']).optional(),
   visibility: z.enum(['private', 'public']).optional(),
   telegram_chat_id: z.string().optional().nullable(),
@@ -21,10 +21,13 @@ const updateProjectSchema = z.object({
     types: z.array(z.string()).optional(),
     channels: z.array(z.enum(['email', 'telegram', 'in-app'])).optional()
   }).optional(),
+  notifications: z.record(z.string(), z.boolean()).optional(),
   settings: z.record(z.string(), z.any()).optional(),
   tags: z.array(z.string()).optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
-  deadline: z.string().datetime().optional().nullable()
+  deadline: z.string().optional().nullable(),
+  budget: z.number().optional(),
+  progress: z.number().optional()
 });
 
 // Упрощенная проверка доступа к проекту для SQLite
