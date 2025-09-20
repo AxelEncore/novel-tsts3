@@ -559,9 +559,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.log('📊 AppContext: Extracted projects data:', projectsData);
       
       if (projectsData && Array.isArray(projectsData)) {
-        const projects = projectsData.map(convertApiProjectToProject);
-        console.log('✅ AppContext: Converted projects:', projects.length, 'items');
-        dispatch({ type: "SET_PROJECTS", payload: projects });
+        // Загружаем членов для каждого проекта
+        const projectsWithMembers = await Promise.all(
+          projectsData.map(async (project) => {
+            try {
+              const membersResponse = await fetch(`/api/projects/${project.id}/members`, {
+                credentials: 'include'
+              });
+              
+              if (membersResponse.ok) {
+                const membersData = await membersResponse.json();
+                const members = membersData.members || membersData.data || [];
+                
+                // Преобразуем членов в нужный формат
+                const formattedMembers = members.map((member: any) => ({
+                  id: member.user_id || member.id,
+                  userId: member.user_id || member.id,
+                  name: member.name || member.user_name || 'Unknown',
+                  email: member.email || member.user_email || '',
+                  role: member.role || 'member',
+                  isApproved: true,
+                  created_at: member.joined_at || new Date().toISOString(),
+                  updated_at: member.joined_at || new Date().toISOString()
+                }));
+                
+                return {
+                  ...convertApiProjectToProject(project),
+                  members: formattedMembers
+                };
+              } else {
+                return {
+                  ...convertApiProjectToProject(project),
+                  members: []
+                };
+              }
+            } catch (error) {
+              console.error(`Failed to load members for project ${project.id}:`, error);
+              return {
+                ...convertApiProjectToProject(project),
+                members: []
+              };
+            }
+          })
+        );
+        
+        console.log('✅ AppContext: Converted projects with members:', projectsWithMembers.length, 'items');
+        dispatch({ type: "SET_PROJECTS", payload: projectsWithMembers });
       } else {
         console.warn('❌ AppContext: No projects data found in response');
       }

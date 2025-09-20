@@ -25,6 +25,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   onColumnUpdate,
 }) => {
   const { user, users } = useApp();
+  const [projectMembers, setProjectMembers] = useState<User[]>([]);
   
   // Функция для соответствия колонок со статусами задач
   const getColumnStatusMapping = (columns: Column[]) => {
@@ -100,7 +101,56 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
     dragOverTask: null,
   });
 
-  // Загрузка колонок для доски через API
+  // Загрузка членов проекта
+  const loadProjectMembers = async () => {
+    try {
+      // Находим project_id через board
+      const boardResponse = await fetch(`/api/boards/${board.id}`, {
+        credentials: 'include'
+      });
+      
+      if (!boardResponse.ok) {
+        console.error('Не удалось загрузить информацию о доске');
+        return;
+      }
+      
+      const boardData = await boardResponse.json();
+      const projectId = boardData.data?.project_id || boardData.project_id;
+      
+      if (!projectId) {
+        console.error('Project ID не найден для доски:', boardData);
+        return;
+      }
+      
+      // Загружаем членов проекта
+      const membersResponse = await fetch(`/api/projects/${projectId}/members`, {
+        credentials: 'include'
+      });
+      
+      if (membersResponse.ok) {
+        const membersData = await membersResponse.json();
+        const members = membersData.members || membersData.data || [];
+        
+        // Преобразуем данные в формат User
+        const formattedMembers = members.map((member: any) => ({
+          id: member.user_id || member.id,
+          name: member.name || member.user_name || 'Unknown',
+          email: member.email || member.user_email || '',
+          role: member.role || 'member',
+          isApproved: true,
+          created_at: member.joined_at || new Date().toISOString(),
+          updated_at: member.joined_at || new Date().toISOString()
+        }));
+        
+        setProjectMembers(formattedMembers);
+        console.log('Загружено членов проекта:', formattedMembers.length);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки членов проекта:', error);
+    }
+  };
+  
+  // Загрузка колонок и задач для доски через API
   const loadColumns = async () => {
     try {
       setLoading(true);
@@ -114,8 +164,42 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       console.log('💯 KanbanBoard: Columns API response:', data);
       
       if (response.ok && data.columns) {
-        setColumns(data.columns);
-        console.log('✅ KanbanBoard: Loaded', data.columns.length, 'columns');
+        // Загружаем задачи для каждой колонки
+        const columnsWithTasks = await Promise.all(
+          data.columns.map(async (column: Column) => {
+            try {
+              const tasksResponse = await fetch(
+                `/api/tasks?column_id=${column.id}`,
+                { credentials: 'include' }
+              );
+              
+              if (tasksResponse.ok) {
+                const tasksData = await tasksResponse.json();
+                const tasks = tasksData.data?.tasks || tasksData.tasks || [];
+                console.log(`Loaded ${tasks.length} tasks for column ${column.title || column.name}`);
+                return {
+                  ...column,
+                  tasks: tasks
+                };
+              } else {
+                console.error(`Failed to load tasks for column ${column.id}`);
+                return {
+                  ...column,
+                  tasks: []
+                };
+              }
+            } catch (error) {
+              console.error(`Error loading tasks for column ${column.id}:`, error);
+              return {
+                ...column,
+                tasks: []
+              };
+            }
+          })
+        );
+        
+        setColumns(columnsWithTasks);
+        console.log('✅ KanbanBoard: Loaded', columnsWithTasks.length, 'columns with tasks');
       } else {
         console.error('❌ KanbanBoard: Failed to load columns:', data.error);
         toast.error(data.error || 'Ошибка при загрузке колонок');
@@ -130,10 +214,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   useEffect(() => {
     loadColumns();
+    loadProjectMembers();
   }, [board.id]);
 
   // Обработка создания новой задачи
-  const handleTaskCreated = (newTask: Task, columnId: string) => {
+  const handleTaskCreated = async (newTask: Task, columnId: string) => {
     // Обновляем статус задачи на основе колонки
     const column = columns.find(col => col.id === columnId);
     const correctStatus = column ? statusMapping[column.id] : newTask.status;
@@ -151,6 +236,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
       }
       return col;
     }));
+    
+    // Перезагружаем колонки чтобы получить актуальные данные из БД
+    setTimeout(() => {
+      loadColumns();
+    }, 500);
     
     if (onTaskUpdate) {
       onTaskUpdate();
@@ -362,7 +452,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
           onTaskCreated={(task) => handleTaskCreated(task, selectedColumn.id)}
           columnId={selectedColumn.id}
           boardId={board.id}
-          users={users}
+          users={projectMembers.length > 0 ? projectMembers : users}
         />
       )}
 

@@ -101,9 +101,33 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      // Create a mock task for now - this would normally call an API
+      // Вызываем API для создания задачи
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: formData.title.trim(),
+          description: formData.description.trim() || '',
+          priority: formData.priority.toLowerCase(),
+          column_id: columnId.toString(),
+          assignee_ids: formData.assigneeIds,
+          due_date: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
+          tags: formData.tags,
+          estimated_hours: formData.estimatedHours
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create task');
+      }
+
+      const result = await response.json();
       const newTask: Task = {
-        id: Math.random().toString(36).substr(2, 9), // temporary ID
+        id: result.data?.task?.id || Math.random().toString(36).substr(2, 9),
         title: formData.title.trim(),
         description: formData.description.trim() || undefined,
         priority: formData.priority,
@@ -111,22 +135,22 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         project_id: '',
         board_id: boardId,
         column_id: columnId.toString(),
-        assignee_id: formData.assigneeIds.length > 0 ? formData.assigneeIds[0].toString() : undefined,
+        assignee_id: formData.assigneeIds.length > 0 ? formData.assigneeIds[0] : undefined,
         reporter_id: '',
         position: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         due_date: formData.dueDate || undefined,
-        tags: (formData.tags && formData.tags.length > 0) ? formData.tags : undefined,
+        tags: formData.tags
       };
 
       if (onTaskCreated) {
         onTaskCreated(newTask, typeof columnId === 'string' ? parseInt(columnId) : columnId);
       }
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка при создании задачи:', error);
-      setErrors({ submit: 'Не удалось создать задачу. Попробуйте еще раз.' });
+      setErrors({ submit: error.message || 'Не удалось создать задачу. Попробуйте еще раз.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -166,14 +190,14 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Заголовок */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Создать задачу</h2>
+        <div className="flex items-center justify-between p-6 border-b border-white/10">
+          <h2 className="text-xl font-semibold text-white">Создать задачу</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-white transition-colors"
           >
             <X size={24} />
           </button>
@@ -183,7 +207,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Название задачи */}
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-2">
               Название задачи *
             </label>
             <input
@@ -191,20 +215,20 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               id="title"
               value={formData.title}
               onChange={(e) => handleInputChange('title', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.title ? 'border-red-300' : 'border-gray-300'
+              className={`w-full px-3 py-2 bg-white/5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white placeholder-gray-500 ${
+                errors.title ? 'border-red-400' : 'border-white/10'
               }`}
               placeholder="Введите название задачи"
               maxLength={200}
             />
             {errors.title && (
-              <p className="mt-1 text-sm text-red-600">{errors.title}</p>
+              <p className="mt-1 text-sm text-red-400">{errors.title}</p>
             )}
           </div>
 
           {/* Описание */}
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">
               Описание
             </label>
             <textarea
@@ -212,14 +236,14 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
               rows={4}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.description ? 'border-red-300' : 'border-gray-300'
+              className={`w-full px-3 py-2 bg-white/5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white placeholder-gray-500 ${
+                errors.description ? 'border-red-400' : 'border-white/10'
               }`}
               placeholder="Введите описание задачи"
               maxLength={1000}
             />
             {errors.description && (
-              <p className="mt-1 text-sm text-red-600">{errors.description}</p>
+              <p className="mt-1 text-sm text-red-400">{errors.description}</p>
             )}
           </div>
 
@@ -227,7 +251,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Приоритет */}
             <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="priority" className="block text-sm font-medium text-gray-300 mb-2">
                 <Flag size={16} className="inline mr-1" />
                 Приоритет
               </label>
@@ -235,10 +259,10 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 id="priority"
                 value={formData.priority}
                 onChange={(e) => handleInputChange('priority', e.target.value as Task['priority'])}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white"
               >
                 {PRIORITY_OPTIONS.map(option => (
-                  <option key={option.value} value={option.value}>
+                  <option key={option.value} value={option.value} className="bg-gray-800 text-white">
                     {option.label}
                   </option>
                 ))}
@@ -247,7 +271,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
             {/* Дата выполнения */}
             <div>
-              <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="dueDate" className="block text-sm font-medium text-gray-300 mb-2">
                 <Calendar size={16} className="inline mr-1" />
                 Дата выполнения
               </label>
@@ -257,14 +281,14 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 value={formData.dueDate}
                 onChange={(e) => handleInputChange('dueDate', e.target.value)}
                 min={format(new Date(), 'yyyy-MM-dd')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white"
               />
             </div>
           </div>
 
           {/* Оценка времени */}
           <div>
-            <label htmlFor="estimatedHours" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="estimatedHours" className="block text-sm font-medium text-gray-300 mb-2">
               Оценка времени (часы)
             </label>
             <input
@@ -274,41 +298,41 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               onChange={(e) => handleInputChange('estimatedHours', e.target.value ? parseFloat(e.target.value) : null)}
               min="0"
               step="0.5"
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.estimatedHours ? 'border-red-300' : 'border-gray-300'
+              className={`w-full px-3 py-2 bg-white/5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white placeholder-gray-500 ${
+                errors.estimatedHours ? 'border-red-400' : 'border-white/10'
               }`}
               placeholder="Введите количество часов"
             />
             {errors.estimatedHours && (
-              <p className="mt-1 text-sm text-red-600">{errors.estimatedHours}</p>
+              <p className="mt-1 text-sm text-red-400">{errors.estimatedHours}</p>
             )}
           </div>
 
           {/* Исполнители */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               <Users size={16} className="inline mr-1" />
               Исполнители
             </label>
-            <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+            <div className="space-y-2 max-h-32 overflow-y-auto border border-white/10 bg-white/5 rounded-lg p-2">
               {(!users || users.length === 0) ? (
-                <div className="text-center py-4 text-gray-500 text-sm">
+                <div className="text-center py-4 text-gray-400 text-sm">
                   Нет доступных пользователей
                 </div>
               ) : (
                 (users || []).map(user => (
-                  <label key={user.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                  <label key={user.id} className="flex items-center space-x-2 cursor-pointer hover:bg-white/10 p-1 rounded">
                     <input
                       type="checkbox"
                       checked={formData.assigneeIds.includes(user.id)}
                       onChange={() => toggleAssignee(user.id)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-600 text-primary-500 focus:ring-primary-500 bg-white/10"
                     />
                     <div className="flex items-center space-x-2">
-                      <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-medium text-gray-700">
+                      <div className="w-6 h-6 rounded-full bg-primary-500/20 flex items-center justify-center text-xs font-medium text-primary-400">
                         {user.name ? user.name.charAt(0).toUpperCase() : '?'}
                       </div>
-                      <span className="text-sm text-gray-900">
+                      <span className="text-sm text-gray-200">
                         {user.name || 'Unknown User'}
                       </span>
                     </div>
@@ -320,20 +344,20 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
           {/* Теги */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Теги
             </label>
             <div className="flex flex-wrap gap-2 mb-2">
               {(formData.tags || []).map(tag => (
                 <span
                   key={tag}
-                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400"
                 >
                   {tag}
                   <button
                     type="button"
                     onClick={() => handleRemoveTag(tag)}
-                    className="ml-1 text-blue-600 hover:text-blue-800"
+                    className="ml-1 text-primary-300 hover:text-primary-200"
                   >
                     <X size={12} />
                   </button>
@@ -346,13 +370,13 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-white placeholder-gray-500"
                 placeholder="Добавить тег"
               />
               <button
                 type="button"
                 onClick={handleAddTag}
-                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                className="px-3 py-2 bg-white/10 text-gray-300 rounded-lg hover:bg-white/20 transition-colors"
               >
                 <Plus size={16} />
               </button>
@@ -361,17 +385,17 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
           {/* Ошибка отправки */}
           {errors.submit && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{errors.submit}</p>
+            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+              <p className="text-sm text-red-400">{errors.submit}</p>
             </div>
           )}
 
           {/* Кнопки действий */}
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-white/10">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              className="px-4 py-2 text-gray-300 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
               disabled={isSubmitting}
             >
               Отмена
@@ -379,7 +403,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting || !formData.title.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isSubmitting ? 'Создание...' : 'Создать задачу'}
             </button>
