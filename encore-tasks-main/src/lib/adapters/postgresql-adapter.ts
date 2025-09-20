@@ -18,8 +18,9 @@ export class PostgreSQLAdapter {
     const user = process.env.PGUSER || process.env.POSTGRES_USER || process.env.DB_USER || 'postgres';
     const password = process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD || 'postgres';
     
-    // SSL настройки для Replit/Neon
+    // SSL настройки - проверяем различные переменные окружения
     const sslEnabled = process.env.DB_SSL === 'true' || 
+                      process.env.POSTGRES_SSL === 'true' ||
                       process.env.POSTGRES_SSL === 'require' || 
                       process.env.DATABASE_URL?.includes('sslmode=require') ||
                       host.includes('neon.tech');
@@ -36,7 +37,7 @@ export class PostgreSQLAdapter {
     if (process.env.DATABASE_URL) {
       this.pool = new Pool({
         connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false },
+        ssl: sslEnabled ? { rejectUnauthorized: false } : false,
         max: 5, // Reduced to avoid connection issues
         idleTimeoutMillis: 60000, // 1 minute
         connectionTimeoutMillis: 20000, // 20 seconds
